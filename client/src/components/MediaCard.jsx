@@ -31,7 +31,7 @@ const MediaCard = ({ file }) => {
           <img
             src={mediaUrl}
             alt={file.name}
-            className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-cover transform-gpu transition-all duration-300 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
             loading="lazy"
@@ -72,7 +72,7 @@ const MediaCard = ({ file }) => {
       onClick={handleClick}
       className="group relative block w-full rounded-xl overflow-hidden border border-surface-800
                  hover:border-accent-500/40 hover:shadow-card-hover
-                 transition-all duration-200 animate-fade-in focus:outline-none
+                 transition-[border-color,box-shadow,transform] duration-200 animate-fade-in focus:outline-none
                  focus:ring-2 focus:ring-accent-500/50 bg-surface-900"
       style={{ aspectRatio: '4/3' }}
       title={file.name}
