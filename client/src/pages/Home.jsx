@@ -11,7 +11,7 @@ const Home = ({ onScanComplete }) => {
   useEffect(() => {
     // Load history on mount
     getHistory()
-      .then(({ sessions }) => setHistory(sessions))
+      .then((sessions) => setHistory(sessions || []))
       .catch(() => {});
   }, []);
 
@@ -113,7 +113,7 @@ const Home = ({ onScanComplete }) => {
         </div>
 
         {/* History */}
-        {history.length > 0 && (
+        {history && history.length > 0 && (
           <div className="mt-6 animate-fade-in">
             <div className="flex items-center gap-2 mb-3 px-1">
               <Clock size={14} className="text-surface-600" />
@@ -130,10 +130,10 @@ const Home = ({ onScanComplete }) => {
                 >
                   <HardDrive size={14} className="text-surface-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-surface-300 font-medium truncate">{session.label}</p>
-                    <p className="text-xs text-surface-600 font-mono truncate">{session.path}</p>
+                    <p className="text-sm text-surface-300 font-medium truncate">{session.label || session.path}</p>
+                    {session.label && <p className="text-xs text-surface-600 font-mono truncate">{session.path}</p>}
                   </div>
-                  <span className="text-xs text-surface-600 flex-shrink-0">{session.fileCount} files</span>
+                  <span className="text-xs text-surface-600 flex-shrink-0">{session.fileCount || 0} files</span>
                   <button
                     id={`delete-session-${session._id}`}
                     onClick={(e) => handleDelete(e, session._id)}
