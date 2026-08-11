@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FolderSearch, Clock, Trash2, ChevronRight, Network, HardDrive, AlertCircle } from 'lucide-react';
+import { FolderSearch, Clock, Trash2, HardDrive, AlertCircle } from 'lucide-react';
 import { scanDirectory, getHistory, deleteSession } from '../services/api';
 import useGalleryStore from '../store/galleryStore';
-
-const SUGGESTED_PATHS = [
-  { label: 'Network Share', value: '\\\\10.1.10.28\\sims\\Admission\\Archive\\FALL-2026', icon: Network },
-];
 
 const Home = ({ onScanComplete }) => {
   const [inputValue, setInputValue] = useState('');
@@ -114,30 +110,6 @@ const Home = ({ onScanComplete }) => {
           <p className="mt-3 text-xs text-surface-600">
             Supports UNC paths (\\server\share), local paths (C:\folder), and mapped drives
           </p>
-
-          {/* Suggested paths */}
-          {SUGGESTED_PATHS.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-surface-800">
-              <p className="text-xs text-surface-600 mb-2 font-medium uppercase tracking-wider">Quick access</p>
-              <div className="flex flex-col gap-1">
-                {SUGGESTED_PATHS.map((s) => (
-                  <button
-                    key={s.value}
-                    id={`suggested-${s.label.replace(/\s+/g, '-').toLowerCase()}`}
-                    onClick={() => { setInputValue(s.value); handleScan(s.value); }}
-                    disabled={isScanning}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-                               text-surface-400 hover:text-surface-200 hover:bg-surface-800
-                               transition-all duration-150 text-left group"
-                  >
-                    <s.icon size={15} className="text-accent-500 flex-shrink-0" />
-                    <span className="font-mono text-xs truncate flex-1">{s.value}</span>
-                    <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* History */}
