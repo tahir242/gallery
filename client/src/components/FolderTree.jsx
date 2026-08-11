@@ -85,7 +85,7 @@ const FolderTree = () => {
 
   return (
     <aside className="w-64 flex-shrink-0 border-r border-surface-800 bg-surface-950 flex flex-col h-full animate-slide-in-right">
-      <div className="p-3 pb-0 flex-shrink-0">
+      <div className="p-3 pb-0">
         {/* All files button */}
         <button
           id="folder-all"
@@ -123,7 +123,7 @@ const FolderTree = () => {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
+      <div className="flex-1 overflow-y-auto px-3 pb-3">
         {/* Folder tree */}
         {scanResult.folderTree ? (
           <TreeNode
