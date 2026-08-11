@@ -13,18 +13,7 @@ const Header = ({ onHomeClick }) => {
     <header className="sticky top-0 z-40 w-full border-b border-surface-800 bg-surface-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between h-14 px-4 max-w-screen-2xl mx-auto">
         {/* Left: Logo + hamburger */}
-        <div className="flex items-center gap-3">
-          {scanResult && (
-            <button
-              id="sidebar-toggle"
-              onClick={toggleSidebar}
-              className="btn-ghost p-2 rounded-lg"
-              aria-label="Toggle sidebar"
-            >
-              {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-          )}
-
+        <div className="flex items-center">
           <button
             id="home-btn"
             onClick={handleHome}
@@ -37,6 +26,20 @@ const Header = ({ onHomeClick }) => {
               Gallery
             </span>
           </button>
+
+          {scanResult && (
+            <>
+              <div className="h-6 w-px bg-surface-800 mx-4" />
+              <button
+                id="sidebar-toggle"
+                onClick={toggleSidebar}
+                className="flex items-center justify-center w-8 h-8 rounded-md border border-surface-800 bg-surface-900 hover:bg-surface-800 text-surface-400 hover:text-surface-200 transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                {sidebarOpen ? <X size={15} /> : <Menu size={15} />}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Right: scan info */}
