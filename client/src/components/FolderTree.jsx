@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Folder, FolderOpen, HardDrive } from 'lucide-react';
-import useGalleryStore from '../../store/galleryStore';
+import useGalleryStore from '../store/galleryStore';
 
 const TreeNode = ({ node, depth = 0, filesByDir }) => {
   const [expanded, setExpanded] = useState(depth < 2);
