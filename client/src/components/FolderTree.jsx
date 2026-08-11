@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { ChevronRight, Folder, FolderOpen, HardDrive } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 
-const TreeNode = ({ node, depth = 0, filesByDir }) => {
+const TreeNode = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 2);
   const { selectedFolder, setSelectedFolder } = useGalleryStore();
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFolder === node.path;
-  const fileCount = filesByDir[node.path] || 0;
 
   return (
     <div className="select-none">
@@ -45,12 +44,6 @@ const TreeNode = ({ node, depth = 0, filesByDir }) => {
         )}
 
         <span className="truncate flex-1 font-medium text-xs">{node.name}</span>
-
-        {fileCount > 0 && (
-          <span className={`text-xs flex-shrink-0 ${isSelected ? 'text-accent-400' : 'text-surface-600'}`}>
-            {fileCount}
-          </span>
-        )}
       </button>
 
       {hasChildren && expanded && (
@@ -60,7 +53,6 @@ const TreeNode = ({ node, depth = 0, filesByDir }) => {
               key={child.path}
               node={child}
               depth={depth + 1}
-              filesByDir={filesByDir}
             />
           ))}
         </div>
@@ -73,13 +65,6 @@ const FolderTree = () => {
   const { scanResult, selectedFolder, setSelectedFolder, sidebarOpen } = useGalleryStore();
 
   if (!scanResult || !sidebarOpen) return null;
-
-  // Build a map of folder path → file count
-  const filesByDir = {};
-  for (const file of scanResult.files) {
-    const dir = file.path.substring(0, file.path.lastIndexOf('\\') || file.path.lastIndexOf('/'));
-    filesByDir[dir] = (filesByDir[dir] || 0) + 1;
-  }
 
   return (
     <aside className="w-64 flex-shrink-0 border-r border-surface-800 bg-surface-950 overflow-y-auto h-full animate-slide-in-right">
@@ -99,7 +84,7 @@ const FolderTree = () => {
         >
           <Folder size={14} />
           <span>All Files</span>
-          <span className="ml-auto text-xs text-surface-500">{scanResult.fileCount}</span>
+          <span className="ml-auto text-xs text-surface-500">{scanResult.totalFiles}</span>
         </button>
 
         <div className="h-px bg-surface-800 mb-2" />
@@ -112,7 +97,6 @@ const FolderTree = () => {
           <TreeNode
             node={scanResult.folderTree}
             depth={0}
-            filesByDir={filesByDir}
           />
         ) : (
           <p className="text-xs text-surface-600 px-2">No subfolders</p>

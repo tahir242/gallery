@@ -1,22 +1,35 @@
-import { useMemo } from 'react';
-import { LayoutGrid, List, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useRef, useCallback } from 'react';
+import { LayoutGrid, List, Image as ImageIcon, Loader2 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import MediaCard from './MediaCard';
 
-const ITEMS_PER_PAGE = 100;
-
 const MediaGrid = () => {
-  const { getFilteredFiles, viewMode, setViewMode, searchQuery, selectedFolder, scanResult } = useGalleryStore();
+  const { 
+    files, 
+    viewMode, 
+    setViewMode, 
+    searchQuery, 
+    selectedFolder, 
+    totalMatches,
+    hasMore,
+    isLoadingMore,
+    loadFiles
+  } = useGalleryStore();
 
-  const files = useMemo(() => getFilteredFiles(), [
-    getFilteredFiles,
-    searchQuery,
-    selectedFolder,
-    scanResult,
-  ]);
+  const observer = useRef();
 
-  // Show first N items (TODO: add pagination/virtual scroll)
-  const displayed = files.slice(0, ITEMS_PER_PAGE);
+  const lastElementRef = useCallback((node) => {
+    if (isLoadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadFiles();
+      }
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [isLoadingMore, hasMore, loadFiles]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -25,16 +38,16 @@ const MediaGrid = () => {
         <div className="flex items-center gap-2 text-sm text-surface-500">
           {searchQuery ? (
             <span>
-              Showing <span className="text-surface-300 font-medium">{files.length}</span> results
+              Showing <span className="text-surface-300 font-medium">{totalMatches}</span> results
               {' '}for <span className="text-accent-400">"{searchQuery}"</span>
             </span>
           ) : selectedFolder ? (
             <span>
-              <span className="text-surface-300 font-medium">{files.length}</span> files in folder
+              <span className="text-surface-300 font-medium">{totalMatches}</span> files in folder
             </span>
           ) : (
             <span>
-              <span className="text-surface-300 font-medium">{files.length}</span> media files
+              <span className="text-surface-300 font-medium">{totalMatches}</span> media files
             </span>
           )}
         </div>
@@ -61,7 +74,7 @@ const MediaGrid = () => {
       </div>
 
       {/* Empty state */}
-      {files.length === 0 && (
+      {files.length === 0 && !isLoadingMore && (
         <div className="flex-1 flex flex-col items-center justify-center text-center py-20">
           <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mb-4">
             <ImageIcon size={28} className="text-surface-600" />
@@ -75,27 +88,38 @@ const MediaGrid = () => {
 
       {/* Grid layout */}
       {files.length > 0 && viewMode === 'grid' && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {displayed.map((file) => (
-            <MediaCard key={file.path} file={file} />
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-8">
+          {files.map((file, index) => {
+            const isLast = index === files.length - 1;
+            return (
+              <div key={`${file.path}-${index}`} ref={isLast ? lastElementRef : null}>
+                <MediaCard file={file} />
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* List layout */}
       {files.length > 0 && viewMode === 'list' && (
-        <div className="flex flex-col gap-1">
-          {displayed.map((file) => (
-            <ListRow key={file.path} file={file} />
-          ))}
+        <div className="flex flex-col gap-1 pb-8">
+          {files.map((file, index) => {
+            const isLast = index === files.length - 1;
+            return (
+              <div key={`${file.path}-${index}`} ref={isLast ? lastElementRef : null}>
+                <ListRow file={file} />
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* More items notice */}
-      {files.length > ITEMS_PER_PAGE && (
-        <p className="text-center text-surface-600 text-sm mt-6">
-          Showing {ITEMS_PER_PAGE} of {files.length} files
-        </p>
+      {/* Loading indicator */}
+      {isLoadingMore && (
+        <div className="flex justify-center items-center py-6">
+          <Loader2 className="animate-spin text-accent-500" size={24} />
+          <span className="ml-2 text-surface-400 text-sm">Loading more files...</span>
+        </div>
       )}
     </div>
   );
@@ -130,7 +154,7 @@ const ListRow = ({ file }) => {
       <span className="flex-1 text-sm text-surface-200 truncate group-hover:text-white transition-colors">
         {file.name}
       </span>
-      <span className="text-xs text-surface-600 hidden md:block truncate max-w-xs">
+      <span className="text-xs text-surface-600 hidden md:block truncate max-w-xs" title={file.directory}>
         {file.directory}
       </span>
       <span className="text-xs text-surface-500 flex-shrink-0 w-16 text-right">

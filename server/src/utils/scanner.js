@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsPromises = fs.promises;
 const path = require('path');
 const { getMediaType, isMediaFile } = require('./mediaTypes');
 
@@ -25,14 +26,14 @@ const normalizePath = (inputPath) => {
 };
 
 /**
- * Check if a directory is accessible
+ * Check if a directory is accessible (async)
  * @param {string} dirPath
- * @returns {{ accessible: boolean, error?: string }}
+ * @returns {Promise<{ accessible: boolean, error?: string }>}
  */
-const checkAccess = (dirPath) => {
+const checkAccessAsync = async (dirPath) => {
   try {
-    fs.accessSync(dirPath, fs.constants.R_OK);
-    const stat = fs.statSync(dirPath);
+    await fsPromises.access(dirPath, fs.constants.R_OK);
+    const stat = await fsPromises.stat(dirPath);
     if (!stat.isDirectory()) {
       return { accessible: false, error: 'Path is not a directory' };
     }
@@ -50,15 +51,15 @@ const checkAccess = (dirPath) => {
 };
 
 /**
- * Recursively scan a directory for media files
+ * Recursively scan a directory for media files asynchronously
  * @param {string} dirPath - absolute directory path
  * @param {string} rootPath - root of the scan (for relative path calculation)
  * @param {Object} options
  * @param {number} options.maxDepth - maximum recursion depth (default: 20)
  * @param {number} options.currentDepth - current depth (internal)
- * @returns {{ files: Array, folders: string[], errors: string[] }}
+ * @returns {Promise<{ files: Array, folders: string[], errors: string[] }>}
  */
-const scanDirectory = (dirPath, rootPath, options = {}) => {
+const scanDirectoryAsync = async (dirPath, rootPath, options = {}) => {
   const { maxDepth = 20, currentDepth = 0 } = options;
 
   const result = {
@@ -71,13 +72,15 @@ const scanDirectory = (dirPath, rootPath, options = {}) => {
 
   let entries;
   try {
-    entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
   } catch (err) {
     result.errors.push(`Cannot read directory ${dirPath}: ${err.message}`);
     return result;
   }
 
-  for (const entry of entries) {
+  // Process entries concurrently in batches or just await them all
+  // Since we want to be gentle on memory, we can map them and await Promise.all
+  const promises = entries.map(async (entry) => {
     const fullPath = path.join(dirPath, entry.name);
 
     try {
@@ -85,7 +88,7 @@ const scanDirectory = (dirPath, rootPath, options = {}) => {
         result.folders.push(fullPath);
 
         // Recurse
-        const childResult = scanDirectory(fullPath, rootPath, {
+        const childResult = await scanDirectoryAsync(fullPath, rootPath, {
           maxDepth,
           currentDepth: currentDepth + 1,
         });
@@ -99,7 +102,7 @@ const scanDirectory = (dirPath, rootPath, options = {}) => {
         if (isMediaFile(ext)) {
           let stat = null;
           try {
-            stat = fs.statSync(fullPath);
+            stat = await fsPromises.stat(fullPath);
           } catch (_) {
             // stat failure is non-fatal
           }
@@ -124,7 +127,9 @@ const scanDirectory = (dirPath, rootPath, options = {}) => {
     } catch (err) {
       result.errors.push(`Error processing ${fullPath}: ${err.message}`);
     }
-  }
+  });
+
+  await Promise.all(promises);
 
   return result;
 };
@@ -166,4 +171,4 @@ const buildFolderTree = (folders, rootPath) => {
   return tree;
 };
 
-module.exports = { normalizePath, checkAccess, scanDirectory, buildFolderTree };
+module.exports = { normalizePath, checkAccessAsync, scanDirectoryAsync, buildFolderTree };

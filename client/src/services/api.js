@@ -17,6 +17,14 @@ export const scanDirectory = (path, label = '') =>
   api.post('/directory/scan', { path, label }).then((r) => r.data);
 
 /**
+ * Fetch paginated files from cache
+ */
+export const fetchFiles = ({ path, page = 1, limit = 50, search = '', folder = '' }) =>
+  api.get('/directory/files', {
+    params: { path, page, limit, search, folder }
+  }).then((r) => r.data);
+
+/**
  * Fetch scan session history
  */
 export const getHistory = () =>
