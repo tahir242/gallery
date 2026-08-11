@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f46 #18181b;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #18181b;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
+  }
+
+  html {
+    @apply bg-surface-950 text-surface-100;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-950 min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-accent-500/30 text-accent-200;
+  }
+}
+
+@layer components {
+  /* ─── Buttons ─────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-500
+           text-white font-medium text-sm rounded-lg
+           transition-all duration-200 ease-out
+           focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-950
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2
+           text-surface-400 hover:text-surface-100 hover:bg-surface-800
+           font-medium text-sm rounded-lg
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-accent-500/50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-3 py-2
+           text-red-400 hover:text-red-300 hover:bg-red-500/10
+           font-medium text-sm rounded-lg
+           transition-all duration-200;
+  }
+
+  /* ─── Inputs ──────────────────────────────────────── */
+  .input-base {
+    @apply w-full bg-surface-800 border border-surface-700
+           text-surface-100 placeholder-surface-500
+           rounded-lg px-4 py-3 text-sm
+           focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent
+           transition-all duration-200;
+  }
+
+  /* ─── Cards ───────────────────────────────────────── */
+  .card {
+    @apply bg-surface-900 border border-surface-800 rounded-xl;
+  }
+
+  .card-hover {
+    @apply card hover:border-surface-700 hover:bg-surface-850
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* ─── Skeleton loading ────────────────────────────── */
+  .skeleton {
+    @apply bg-surface-800 rounded animate-pulse;
+    background: linear-gradient(
+      90deg,
+      #27272a 25%,
+      #3f3f46 50%,
+      #27272a 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* ─── Badge ───────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-accent {
+    @apply badge bg-accent-500/15 text-accent-300 border border-accent-500/25;
+  }
+
+  .badge-surface {
+    @apply badge bg-surface-800 text-surface-400 border border-surface-700;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
