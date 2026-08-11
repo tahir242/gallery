@@ -10,9 +10,8 @@ const formatSize = (bytes) => {
 };
 
 const LightBox = () => {
-  const { selectedFile, setSelectedFile, getFilteredFiles } = useGalleryStore();
+  const { selectedFile, setSelectedFile, files } = useGalleryStore();
 
-  const files = getFilteredFiles();
   const currentIndex = files.findIndex((f) => f.path === selectedFile?.path);
 
   const goNext = useCallback(() => {
