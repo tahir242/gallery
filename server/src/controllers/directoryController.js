@@ -1,5 +1,6 @@
 const ScanSession = require('../models/ScanSession');
 const { normalizePath, checkAccess, scanDirectory, buildFolderTree } = require('../utils/scanner');
+const { getIsConnected } = require('../config/db');
 const path = require('path');
 
 /**
@@ -25,38 +26,45 @@ const scanDirectory_handler = async (req, res) => {
   }
 
   try {
-    // Create a session with 'scanning' status
-    const session = new ScanSession({
-      path: normalizedPath,
-      label: label || path.basename(normalizedPath),
-      status: 'scanning',
-    });
-    await session.save();
-
     // Perform the scan (synchronous — could be moved to worker thread for very large dirs)
     const scanResult = scanDirectory(normalizedPath, normalizedPath);
     const folderTree = buildFolderTree(scanResult.folders, normalizedPath);
 
-    // Update session with results
-    session.files = scanResult.files;
-    session.fileCount = scanResult.files.length;
-    session.folderCount = scanResult.folders.length;
-    session.status = 'complete';
-    await session.save();
+    const sessionLabel = label || path.basename(normalizedPath);
+    let sessionId = null;
+
+    // Persist to MongoDB if connected
+    if (getIsConnected()) {
+      try {
+        const session = new ScanSession({
+          path: normalizedPath,
+          label: sessionLabel,
+          files: scanResult.files,
+          fileCount: scanResult.files.length,
+          folderCount: scanResult.folders.length,
+          status: 'complete',
+        });
+        await session.save();
+        sessionId = session._id;
+      } catch (dbErr) {
+        console.warn('Could not persist session to DB:', dbErr.message);
+      }
+    }
 
     return res.status(200).json({
-      sessionId: session._id,
+      sessionId,
       path: normalizedPath,
-      label: session.label,
-      fileCount: session.fileCount,
-      folderCount: session.folderCount,
+      label: sessionLabel,
+      fileCount: scanResult.files.length,
+      folderCount: scanResult.folders.length,
       files: scanResult.files,
       folderTree,
       errors: scanResult.errors,
-      scannedAt: session.updatedAt,
+      scannedAt: new Date().toISOString(),
     });
   } catch (err) {
     console.error('Scan error:', err);
+
     return res.status(500).json({ error: `Scan failed: ${err.message}` });
   }
 };
@@ -66,6 +74,9 @@ const scanDirectory_handler = async (req, res) => {
  * Return recent scan sessions (last 20)
  */
 const getHistory = async (req, res) => {
+  if (!getIsConnected()) {
+    return res.status(200).json({ sessions: [] });
+  }
   try {
     const sessions = await ScanSession.find({ status: 'complete' })
       .select('path label fileCount folderCount createdAt updatedAt')
@@ -76,7 +87,7 @@ const getHistory = async (req, res) => {
     return res.status(200).json({ sessions });
   } catch (err) {
     console.error('History fetch error:', err);
-    return res.status(500).json({ error: `Failed to fetch history: ${err.message}` });
+    return res.status(200).json({ sessions: [] });
   }
 };
 
@@ -85,6 +96,9 @@ const getHistory = async (req, res) => {
  * Delete a scan session from history
  */
 const deleteSession = async (req, res) => {
+  if (!getIsConnected()) {
+    return res.status(200).json({ message: 'No database connection' });
+  }
   try {
     const { id } = req.params;
     await ScanSession.findByIdAndDelete(id);
