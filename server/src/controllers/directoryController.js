@@ -85,7 +85,7 @@ const scan = async (req, res) => {
  */
 const getFiles = async (req, res) => {
   try {
-    const { path: dirPath, page = 1, limit = 50, search = '', folder = '' } = req.query;
+    const { path: dirPath, page = 1, limit = 50, search = '', folder = '', sortField = 'date', sortOrder = 'desc' } = req.query;
 
     if (!dirPath) {
       return res.status(400).json({ error: 'Path is required' });
@@ -114,12 +114,26 @@ const getFiles = async (req, res) => {
       );
     }
 
-    // Sort by modifiedAt (newest first) or by name
+    // Dynamic Sorting
     files = files.sort((a, b) => {
-      if (a.modifiedAt && b.modifiedAt) {
-        return b.modifiedAt - a.modifiedAt;
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+          break;
+        case 'size':
+          comparison = (a.size || 0) - (b.size || 0);
+          break;
+        case 'date':
+        default:
+          const dateA = a.modifiedAt ? new Date(a.modifiedAt).getTime() : 0;
+          const dateB = b.modifiedAt ? new Date(b.modifiedAt).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
       }
-      return a.name.localeCompare(b.name);
+      
+      return sortOrder === 'desc' ? -comparison : comparison;
     });
 
     // Paginate

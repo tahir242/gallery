@@ -19,9 +19,9 @@ export const scanDirectory = (path, label = '') =>
 /**
  * Fetch paginated files from cache
  */
-export const fetchFiles = ({ path, page = 1, limit = 50, search = '', folder = '' }) =>
+export const fetchFiles = ({ path, page = 1, limit = 50, search = '', folder = '', sortField = 'date', sortOrder = 'desc' }) =>
   api.get('/directory/files', {
-    params: { path, page, limit, search, folder }
+    params: { path, page, limit, search, folder, sortField, sortOrder }
   }).then((r) => r.data);
 
 /**

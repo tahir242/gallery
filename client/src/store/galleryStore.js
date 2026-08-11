@@ -19,6 +19,8 @@ const useGalleryStore = create((set, get) => ({
   searchQuery: '',
   selectedFolder: null,   // absolute folder path string or null
   viewMode: 'grid',       // 'grid' | 'list'
+  sortField: 'date',      // 'date' | 'name' | 'size'
+  sortOrder: 'desc',      // 'asc' | 'desc'
   selectedFile: null,     // file object for lightbox
   sidebarOpen: true,
 
@@ -39,6 +41,8 @@ const useGalleryStore = create((set, get) => ({
       page: 1,
       hasMore: false,
       totalMatches: 0,
+      sortField: 'date',
+      sortOrder: 'desc',
     });
     // Trigger initial file load
     get().loadFiles(true);
@@ -55,6 +59,11 @@ const useGalleryStore = create((set, get) => ({
 
   setSelectedFolder: (folder) => {
     set({ selectedFolder: folder, page: 1 });
+    get().loadFiles(true);
+  },
+
+  setSort: (field, order) => {
+    set({ sortField: field, sortOrder: order, page: 1 });
     get().loadFiles(true);
   },
 
@@ -83,7 +92,7 @@ const useGalleryStore = create((set, get) => ({
 
   // ─── Async Data Fetching ──────────────────────────────────────────────────
   loadFiles: async (reset = false) => {
-    const { currentPath, page, searchQuery, selectedFolder, isLoadingMore, hasMore } = get();
+    const { currentPath, page, searchQuery, selectedFolder, isLoadingMore, hasMore, sortField, sortOrder } = get();
     
     if (!currentPath) return;
     if (!reset && (!hasMore || isLoadingMore)) return;
@@ -99,6 +108,8 @@ const useGalleryStore = create((set, get) => ({
         limit: 50,
         search: searchQuery,
         folder: selectedFolder || '',
+        sortField,
+        sortOrder,
       });
       
       set((state) => ({

@@ -13,7 +13,10 @@ const MediaGrid = () => {
     totalMatches,
     hasMore,
     isLoadingMore,
-    loadFiles
+    loadFiles,
+    sortField,
+    sortOrder,
+    setSort
   } = useGalleryStore();
 
   const observer = useRef();
@@ -52,24 +55,45 @@ const MediaGrid = () => {
           )}
         </div>
 
-        {/* View toggle */}
-        <div className="flex items-center gap-1 bg-surface-900 border border-surface-800 rounded-lg p-1">
-          <button
-            id="view-grid"
-            onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-accent-600 text-white' : 'text-surface-500 hover:text-surface-300'}`}
-            aria-label="Grid view"
-          >
-            <LayoutGrid size={15} />
-          </button>
-          <button
-            id="view-list"
-            onClick={() => setViewMode('list')}
-            className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-accent-600 text-white' : 'text-surface-500 hover:text-surface-300'}`}
-            aria-label="List view"
-          >
-            <List size={15} />
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Sort dropdown */}
+          <div className="flex items-center bg-surface-900 border border-surface-800 rounded-lg p-1 px-2">
+            <select
+              value={`${sortField}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSort(field, order);
+              }}
+              className="bg-transparent text-sm text-surface-300 hover:text-surface-100 focus:outline-none cursor-pointer [&>option]:bg-surface-900"
+            >
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="size-desc">Largest First</option>
+              <option value="size-asc">Smallest First</option>
+            </select>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center gap-1 bg-surface-900 border border-surface-800 rounded-lg p-1">
+            <button
+              id="view-grid"
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-accent-600 text-white' : 'text-surface-500 hover:text-surface-300'}`}
+              aria-label="Grid view"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              id="view-list"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-accent-600 text-white' : 'text-surface-500 hover:text-surface-300'}`}
+              aria-label="List view"
+            >
+              <List size={15} />
+            </button>
+          </div>
         </div>
       </div>
 
