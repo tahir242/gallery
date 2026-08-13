@@ -7,7 +7,7 @@ let dbPromise = null;
 
 const getDb = async () => {
   if (!dbPromise) {
-    const dataDir = path.join(__dirname, '../data');
+    const dataDir = process.env.APP_DATA_DIR || path.join(__dirname, '../data');
     const dbPath = path.join(dataDir, 'database.sqlite');
     
     dbPromise = require('fs').promises.mkdir(dataDir, { recursive: true })

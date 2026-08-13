@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
+const fs = require('fs');
 
 const directoryRoutes = require('./routes/directory');
 const mediaRoutes = require('./routes/media');
@@ -29,6 +31,18 @@ app.get('/api/health', (_req, res) =>
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 );
 
+// Serve static files in production or packaged environments
+const clientDistPath = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  
+  // SPA Fallback
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 // 404 handler
 app.use((req, res) =>
   res.status(404).json({ error: `Route ${req.originalUrl} not found` })
@@ -41,8 +55,29 @@ app.use((err, _req, res, _next) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 Gallery Server (stateless) running on http://localhost:${PORT}`);
-});
+let serverInstance = null;
 
-module.exports = app;
+const startServer = (port = PORT) => {
+  return new Promise((resolve, reject) => {
+    serverInstance = app.listen(port, () => {
+      console.log(`🚀 Gallery Server (stateless) running on http://localhost:${serverInstance.address().port}`);
+      resolve(serverInstance);
+    });
+    serverInstance.on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
+const stopServer = () => {
+  if (serverInstance) {
+    serverInstance.close();
+  }
+};
+
+// If run directly (not imported as a module by Electron)
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer, stopServer };
