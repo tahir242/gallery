@@ -2,6 +2,7 @@
   "name": "gallery",
   "version": "1.0.0",
   "description": "MERN gallery application for browsing network/local media directories",
+  "author": "Tahir Ali",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -14,8 +15,9 @@
     "electron:build": "npm run build && cross-env NODE_ENV=production electron-builder"
   },
   "build": {
-    "appId": "com.gallery.desktop",
+    "appId": "com.tahir242.gallery",
     "productName": "Gallery",
+    "copyright": "Copyright © 2026 Tahir Ali",
     "directories": {
       "output": "dist-desktop"
     },
@@ -27,13 +29,16 @@
       "package-lock.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.png"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "build/icon.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "build/icon.png"
     }
   },
   "dependencies": {
