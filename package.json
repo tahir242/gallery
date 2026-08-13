@@ -6,9 +6,9 @@
   "main": "main.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\" --names \"SERVER,CLIENT\" --prefix-colors \"cyan,magenta\"",
-    "server": "cd server && npm run dev",
+    "server": "nodemon server/src/index.js",
     "client": "cd client && npm run dev",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "install:all": "npm install && cd client && npm install",
     "build": "cd client && npm run build",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run client\" \"wait-on http://localhost:5173 && electron .\" --names \"CLIENT,ELECTRON\" --prefix-colors \"magenta,yellow\"",
     "electron:build": "npm run build && cross-env NODE_ENV=production electron-builder"
@@ -36,11 +36,20 @@
       "target": "AppImage"
     }
   },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
+    "nodemon": "^3.1.4",
     "wait-on": "^9.1.0"
   }
 }
