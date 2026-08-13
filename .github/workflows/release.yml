@@ -12,6 +12,13 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            build_args: --win --x64 --ia32
+          - os: macos-latest
+            build_args: --mac
+          - os: ubuntu-latest
+            build_args: --linux
 
     steps:
       - name: Checkout repository
@@ -32,7 +39,7 @@ jobs:
           # Environment variables for Code Signing (CSC)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-        run: npm run build && npx electron-builder --win --x64 --ia32
+        run: npm run build && npx electron-builder ${{ matrix.build_args }}
         
       - name: Release
         uses: softprops/action-gh-release@v1
