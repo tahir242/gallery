@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # Trigger on version tags (e.g., v1.0.0)
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ${{ matrix.os }}
@@ -42,11 +45,10 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           # Disable macOS/Linux auto-discovery of signing certificates
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run build && npx electron-builder ${{ matrix.build_args }}
+        run: npm run build && npx electron-builder ${{ matrix.build_args }} --publish never
         
-      - name: Release
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           generate_release_notes: true
           files: |

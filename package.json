@@ -1,6 +1,6 @@
 {
   "name": "gallery",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "A lightning-fast, premium desktop media gallery for elegantly organizing and browsing your local and network images and videos.",
   "author": "Tahir Ali Channa",
   "private": true,
@@ -38,7 +38,9 @@
     },
     "linux": {
       "target": "AppImage",
-      "icon": "client/public/icon.png"
+      "icon": "client/public/icon.png",
+      "category": "Graphics",
+      "desktopName": "Gallery"
     }
   },
   "dependencies": {
