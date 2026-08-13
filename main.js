@@ -1,0 +1,61 @@
+const { app, BrowserWindow } = require('electron');
+const path = require('path');
+const server = require('./server/src/index.js'); // Import our modified express server
+
+let mainWindow;
+
+async function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    title: "Gallery",
+  });
+
+  mainWindow.removeMenu(); // Remove default electron menu for cleaner look
+
+  // Check if we are in development mode
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (isDev) {
+    // In development, the Vite server runs on port 5173
+    // We start the express server on port 5000 as usual
+    await server.startServer(5000);
+    
+    // Wait a brief moment for Vite to be ready (handled by wait-on in package.json usually)
+    mainWindow.loadURL('http://localhost:5173');
+    
+    // Open DevTools
+    mainWindow.webContents.openDevTools();
+  } else {
+    // In production, start the express server on a dynamic or fixed port
+    // Express will also serve the static client files
+    const port = process.env.PORT || 5000;
+    await server.startServer(port);
+    
+    // Load the express server which is serving the React app
+    mainWindow.loadURL(`http://localhost:${port}`);
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    server.stopServer();
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
+});

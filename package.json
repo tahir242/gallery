@@ -3,14 +3,44 @@
   "version": "1.0.0",
   "description": "MERN gallery application for browsing network/local media directories",
   "private": true,
+  "main": "main.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\" --names \"SERVER,CLIENT\" --prefix-colors \"cyan,magenta\"",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "build": "cd client && npm run build"
+    "build": "cd client && npm run build",
+    "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run client\" \"wait-on http://localhost:5173 && electron .\" --names \"CLIENT,ELECTRON\" --prefix-colors \"magenta,yellow\"",
+    "electron:build": "npm run build && cross-env NODE_ENV=production electron-builder"
+  },
+  "build": {
+    "appId": "com.gallery.desktop",
+    "productName": "Gallery",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "main.js",
+      "server/**/*",
+      "client/dist/**/*",
+      "package.json",
+      "package-lock.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "wait-on": "^9.1.0"
   }
 }
