@@ -45,7 +45,11 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Set writable data directory for sqlite database (solves read-only error in ASAR)
+  process.env.APP_DATA_DIR = path.join(app.getPath('userData'), 'server-data');
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
