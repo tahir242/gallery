@@ -11,9 +11,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![CI/CD](https://github.com/yourusername/gallery/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/gallery/actions)
 
-An intelligent, portable media gallery application that incrementally indexes local and network directories. Bring your photos and videos to life with an attractive, mobile-first design and powerful capabilities.
+An intelligent, portable media desktop application that incrementally indexes local and network directories. Bring your photos and videos to life with an attractive, mobile-first design and powerful native desktop capabilities.
 
-[Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [API Reference](#books-api-reference) • [Contributing](#handshake-contributing)
+[Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [Developer Guide](docs/DEVELOPMENT.md) • [API Reference](#books-api-reference) • [Contributing](#handshake-contributing)
 
 </div>
 
@@ -32,7 +32,9 @@ Our platform is continually evolving to give you the best experience to manage y
 - 📱 **Mobile-First Design**: Completely responsive UI crafted with Tailwind CSS for perfect viewing on any device.
 - ⚡ **Background Processing**: Opens instantly after the first indexed batch while the rest of your large directory scans quietly in the background.
 - 🔄 **Live Sync**: Watches indexed directories and automatically reflects added or removed media files.
-- 🗃️ **Portable SQLite**: No complex database setups. Uses a portable SQLite index stored locally.
+- 🗃️ **Portable SQLite**: No complex database setups. Uses a persistent SQLite index securely stored in your OS AppData.
+- 💻 **Native Desktop Installers**: Standalone `.exe`, `.dmg`, and `.AppImage` wrappers built dynamically with Electron for seamless desktop integration.
+- 🛡️ **Code Signed**: Trusted execution on Windows with SHA-256 signatures mitigating Antivirus flagging.
 
 ---
 
