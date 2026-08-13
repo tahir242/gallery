@@ -32,7 +32,7 @@ jobs:
           # Environment variables for Code Signing (CSC)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-        run: npm run electron:build
+        run: npm run build && npx electron-builder --win --x64 --ia32
         
       - name: Release
         uses: softprops/action-gh-release@v1
