@@ -40,3 +40,7 @@ desktop.ini
 .cache/
 coverage/
 server/data/
+server/src/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
