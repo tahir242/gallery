@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-08-13
+### Fixed
+- Fixed `403 Forbidden - Resource not accessible by integration` error on all CI runners by adding `permissions: contents: write` to the workflow and disabling `electron-builder`'s implicit auto-publish (`--publish never`).
+- Fixed macOS build crash (`Icon must be at least 512x512 pixels, provided: 500x500`) by regenerating the application icon at 512×512px.
+- Fixed Linux AppImage warnings by adding `category: Graphics` and `desktopName: Gallery` metadata to the build config.
+- Upgraded `actions/checkout` and `actions/setup-node` from `v4` to `v5` to resolve Node.js 20 deprecation warnings on GitHub runners.
+- Upgraded `softprops/action-gh-release` from `v1` to `v2`.
+
+## [1.1.3] - 2026-08-13
+### Fixed
+- Renamed `CSC_LINK` to `WIN_CSC_LINK` in CI pipeline to prevent macOS runner from attempting to use Windows code signing certificates.
+
+## [1.1.2] - 2026-08-13
+### Fixed
+- Resolved macOS CI crash by adding `CSC_IDENTITY_AUTO_DISCOVERY: false` to disable automatic certificate keychain scanning on non-Windows runners.
+- Added `fail-fast: false` to the CI matrix strategy so a single platform failure no longer cancels all other builds.
+
+## [1.1.1] - 2026-08-13
+### Fixed
+- Fixed CI matrix failure where all three runners (Windows, macOS, Linux) received hardcoded `--win --x64 --ia32` flags. Each OS runner now receives its own platform-specific build arguments via the matrix `include` strategy.
+
 ## [1.1.0] - 2026-08-13
 ### Added
 - **Electron Desktop Application**: Fully native wrapper delivering standalone `.exe`, `.dmg`, and `.AppImage` distribution.
@@ -14,12 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Windows Code Signing**: Integrated `CSC_LINK` logic into the GitHub CI for SHA-256 `.exe` signatures to prevent AV flagging.
 - Custom premium application icon dynamically embedded into the Windows and macOS desktop installers.
 - Comprehensive `DEVELOPMENT.md` guide documenting the new hybrid architecture.
+- Auto-generated release notes enabled in the GitHub Actions publish step.
 
 ### Fixed
 - Resolved `STATUS_ACCESS_VIOLATION` lock issues during `electron-builder` compilation by pushing dual-arch dependencies to GitHub Actions.
 - Fixed `EADDRINUSE` backend crashes inside the production Electron wrapper by migrating to dynamic OS port assignment (`port 0`).
 - Fixed SQLite database initialization `EPERM` crashes inside read-only `.asar` archives by relocating database writing to the user's secure `%APPDATA%` (`userData`) directory.
 - Fixed React static file serving from the backend API inside packaged environments using directory-existence checks rather than strict Node environments.
+
+### Changed
+- Updated author to "Tahir Ali Channa" and added premium application description.
+- Moved application icon from `build/` to `client/public/` for Vite compatibility.
 
 ## [1.0.0] - 2026-08-13
 ### Added
@@ -28,3 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Responsive Tailwind CSS grid viewer.
 - PDF thumbnail generation and rendering.
 - Background scanning capabilities.
+- GitHub CI/CD pipeline integration.
+- GPL 3.0 License.
+- Contributing guidelines and security policy.

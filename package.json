@@ -39,8 +39,7 @@
     "linux": {
       "target": "AppImage",
       "icon": "client/public/icon.png",
-      "category": "Graphics",
-      "desktopName": "Gallery"
+      "category": "Graphics"
     }
   },
   "dependencies": {
