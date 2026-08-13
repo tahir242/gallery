@@ -59,14 +59,13 @@ let serverInstance = null;
 
 const startServer = (port = PORT) => {
   return new Promise((resolve, reject) => {
-    try {
-      serverInstance = app.listen(port, () => {
-        console.log(`🚀 Gallery Server (stateless) running on http://localhost:${port}`);
-        resolve(serverInstance);
-      });
-    } catch (err) {
+    serverInstance = app.listen(port, () => {
+      console.log(`🚀 Gallery Server (stateless) running on http://localhost:${serverInstance.address().port}`);
+      resolve(serverInstance);
+    });
+    serverInstance.on('error', (err) => {
       reject(err);
-    }
+    });
   });
 };
 

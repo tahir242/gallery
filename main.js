@@ -31,13 +31,13 @@ async function createWindow() {
     // Open DevTools
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, start the express server on a dynamic or fixed port
+    // In production, start the express server on a dynamic free port (0)
     // Express will also serve the static client files
-    const port = process.env.PORT || 5000;
-    await server.startServer(port);
+    const instance = await server.startServer(0);
+    const assignedPort = instance.address().port;
     
     // Load the express server which is serving the React app
-    mainWindow.loadURL(`http://localhost:${port}`);
+    mainWindow.loadURL(`http://localhost:${assignedPort}`);
   }
 
   mainWindow.on('closed', () => {

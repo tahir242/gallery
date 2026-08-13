@@ -1,8 +1,8 @@
 {
   "name": "gallery",
   "version": "1.0.0",
-  "description": "MERN gallery application for browsing network/local media directories",
-  "author": "Tahir Ali",
+  "description": "A lightning-fast, premium desktop media gallery for elegantly organizing and browsing your local and network images and videos.",
+  "author": "Tahir Ali Channa",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -17,7 +17,7 @@
   "build": {
     "appId": "com.tahir242.gallery",
     "productName": "Gallery",
-    "copyright": "Copyright © 2026 Tahir Ali",
+    "copyright": "Copyright © 2026 Tahir Ali Channa",
     "directories": {
       "output": "dist-desktop"
     },
@@ -30,15 +30,15 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "client/public/icon.png"
     },
     "mac": {
       "target": "dmg",
-      "icon": "build/icon.png"
+      "icon": "client/public/icon.png"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "build/icon.png"
+      "icon": "client/public/icon.png"
     }
   },
   "dependencies": {
