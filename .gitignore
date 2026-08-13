@@ -39,3 +39,4 @@ desktop.ini
 # Runtime
 .cache/
 coverage/
+server/data/

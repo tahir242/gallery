@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 
@@ -36,7 +36,7 @@ const SearchBar = () => {
 
   return (
     <div className="relative flex items-center gap-3">
-      <div className="relative flex-1">
+      <div className="relative flex-1 control-surface transition-colors focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/30">
         <Search
           size={15}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none"
@@ -48,7 +48,7 @@ const SearchBar = () => {
           placeholder="Search files and folders… (Ctrl+K)"
           value={localQuery}
           onChange={(e) => setLocalQuery(e.target.value)}
-          className="input-base pl-9 pr-10 py-2.5 text-sm"
+          className="w-full border-0 bg-transparent pl-10 pr-10 py-3 text-sm shadow-none focus:outline-none focus:ring-0"
         />
         {localQuery && (
           <button
@@ -64,8 +64,8 @@ const SearchBar = () => {
 
       {/* Results count */}
       {scanResult && (
-        <div className="flex-shrink-0 text-sm text-surface-500">
-          <span className="text-surface-300 font-medium">{totalMatches}</span>
+        <div className="hidden flex-shrink-0 rounded-full bg-accent-500/10 px-3 py-1.5 text-xs font-medium text-surface-500 sm:block">
+          <span className="text-accent-600 font-bold">{totalMatches}</span>
           {searchQuery && ` of ${scanResult.totalFiles}`} files
         </div>
       )}

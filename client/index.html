@@ -1,17 +1,28 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Gallery — Browse and search your media files from any network or local directory" />
+    <meta name="description" content="Gallery — A beautiful, fast media browser for local and network directories. Masonry layout, full-screen lightbox, instant search." />
+    <meta name="theme-color" content="#09090b" />
     <title>Gallery — Media Browser</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="darkreader-lock" />
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      try {
+        const theme = localStorage.getItem('gallery-theme') || 'dark';
+        const isDark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+        document.documentElement.classList.toggle('dark', isDark);
+      } catch {}
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -1,0 +1,39 @@
+name: Gallery CI/CD
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm run install:all
+      
+    - name: Build client
+      run: npm run build
+
+    # Example test scripts, uncomment if tests exist in the future
+    # - name: Run tests (Client)
+    #   run: cd client && npm run test
+    
+    # - name: Run tests (Server)
+    #   run: cd server && npm run test

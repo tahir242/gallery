@@ -1,7 +1,7 @@
 {
   "name": "gallery-server",
   "version": "1.0.0",
-  "description": "Express API for Gallery MERN application",
+  "description": "Express API for the portable Gallery application",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -11,8 +11,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "mongoose": "^8.5.1",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

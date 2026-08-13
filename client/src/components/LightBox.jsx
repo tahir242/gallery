@@ -1,229 +1,485 @@
-import { useEffect, useCallback, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Download, Info, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import {
+  X, ChevronLeft, ChevronRight,
+  Download, ZoomIn, ZoomOut,
+  Info, Heart, Copy, Check,
+  RotateCcw,
+} from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { getMediaUrl } from '../services/api';
 
+/* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
   if (!bytes) return '—';
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return null;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(dateString));
+  } catch {
+    return null;
+  }
+};
+
+/* ─── Toolbar action button ─────────────────────────────────────────────────── */
+const ActionBtn = ({ id, onClick, icon: Icon, label, active = false, danger = false, className = '' }) => (
+  <button
+    id={id}
+    onClick={onClick}
+    className={`lightbox-action-btn ${active ? 'text-accent-400 bg-accent-500/15' : ''} ${danger && active ? 'text-red-400 bg-red-500/15' : ''} ${className}`}
+    aria-label={label}
+    title={label}
+  >
+    <Icon size={16} />
+  </button>
+);
+
+/* ─── Metadata panel ────────────────────────────────────────────────────────── */
+const MetadataPanel = ({ file, onClose }) => {
+  const rows = [
+    { label: 'Name',      value: file.name },
+    { label: 'Type',      value: file.ext?.toUpperCase() },
+    { label: 'Size',      value: formatSize(file.size) },
+    { label: 'Path',      value: file.path,      mono: true, truncate: false },
+    { label: 'Directory', value: file.directory, mono: true },
+    { label: 'Modified',  value: formatDate(file.modifiedAt) },
+    { label: 'Width',     value: file.width  ? `${file.width}px`  : null },
+    { label: 'Height',    value: file.height ? `${file.height}px` : null },
+  ].filter((r) => r.value);
+
+  return (
+    <div className="flex flex-col w-64 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">Info</span>
+        <button onClick={onClose} className="lightbox-action-btn" aria-label="Close info panel">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="px-4 py-4 flex flex-col gap-4">
+        {rows.map(({ label, value, mono, truncate }) => (
+          <div key={label}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">{label}</p>
+            <p className={`text-[12px] text-white/70 leading-relaxed ${mono ? 'font-mono break-all' : ''} ${truncate === false ? '' : 'line-clamp-3'}`}>
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─── LightBox ──────────────────────────────────────────────────────────────── */
 const LightBox = () => {
-  const { selectedFile, setSelectedFile, files } = useGalleryStore();
+  const {
+    selectedFile, setSelectedFile, files,
+    toggleFavorite, favorites,
+    metadataPanelOpen, toggleMetadataPanel,
+  } = useGalleryStore();
+
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [mediaError, setMediaError] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Touch/swipe state
+  const touchStartX = useRef(null);
+  const closeButtonRef = useRef(null);
+  const backdropRef = useRef(null); // for non-passive wheel + touch listeners
 
   const currentIndex = files.findIndex((f) => f.path === selectedFile?.path);
+  const isFav = selectedFile ? favorites.has(selectedFile.path) : false;
 
-  // Reset zoom and pan on file change
+  // Reset state on file change
   useEffect(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setMediaError(false);
+    setCopied(false);
+  }, [selectedFile]);
+
+  // Focus management
+  useEffect(() => {
+    if (!selectedFile) return undefined;
+    const prev = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => prev?.focus?.();
   }, [selectedFile]);
 
   const goNext = useCallback(() => {
-    if (currentIndex < files.length - 1) {
-      setSelectedFile(files[currentIndex + 1]);
-    }
+    if (currentIndex < files.length - 1) setSelectedFile(files[currentIndex + 1]);
   }, [currentIndex, files, setSelectedFile]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) {
-      setSelectedFile(files[currentIndex - 1]);
-    }
+    if (currentIndex > 0) setSelectedFile(files[currentIndex - 1]);
   }, [currentIndex, files, setSelectedFile]);
 
-  const close = useCallback(() => setSelectedFile(null), [setSelectedFile]);
+  const close = useCallback(() => {
+    setSelectedFile(null);
+  }, [setSelectedFile]);
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // Copy path to clipboard
+  const handleShare = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(selectedFile?.path || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable
+    }
+  }, [selectedFile?.path]);
+
+  // Derive isImage BEFORE the early return so hooks below can use it unconditionally
+  const isImage = selectedFile?.type === 'image' ?? false;
+
+  // ── Wheel zoom (non-passive) ────────────────────────────────────────────────
+  // MUST be above the early return — hooks cannot come after a conditional return.
+  // We attach as { passive: false } via useEffect so e.preventDefault() is legal.
+  const handleWheel = useCallback((e) => {
+    if (!isImage) return;
+    e.preventDefault();
+    setZoom((z) => {
+      const n = e.deltaY < 0 ? Math.min(z + 0.2, 5) : Math.max(z - 0.2, 0.5);
+      if (n <= 1) setPan({ x: 0, y: 0 });
+      return n;
+    });
+  }, [isImage]);
+
+  // Attach wheel + touch as non-passive so preventDefault() is honoured
+  useEffect(() => {
+    const el = backdropRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+    const onTouchEnd   = (e) => {
+      if (touchStartX.current === null) return;
+      const delta = e.changedTouches[0].clientX - touchStartX.current;
+      if (Math.abs(delta) > 60) { delta < 0 ? goNext() : goPrev(); }
+      touchStartX.current = null;
+    };
+
+    el.addEventListener('wheel',      handleWheel,  { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true  });
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true  });
+
+    return () => {
+      el.removeEventListener('wheel',      handleWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend',   onTouchEnd);
+    };
+  }, [handleWheel, goNext, goPrev]);
 
   // Keyboard navigation
   useEffect(() => {
     if (!selectedFile) return;
     const handler = (e) => {
-      if (e.key === 'Escape') close();
-      if (e.key === 'ArrowRight') goNext();
-      if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === '+' || e.key === '=') setZoom(z => Math.min(z + 0.25, 5));
-      if (e.key === '-') setZoom(z => Math.max(z - 0.25, 0.5));
+      switch (e.key) {
+        case 'Escape':     close(); break;
+        case 'ArrowRight': goNext(); break;
+        case 'ArrowLeft':  goPrev(); break;
+        case '+': case '=': setZoom((z) => Math.min(z + 0.25, 5)); break;
+        case '-':           setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; }); break;
+        case 'f': case 'F': if (selectedFile) toggleFavorite(selectedFile.path); break;
+        case 'i': case 'I': toggleMetadataPanel(); break;
+        case 'Tab': {
+          const focusable = document.getElementById('lightbox')?.querySelectorAll('button, a[href], video[controls], audio[controls]');
+          if (!focusable?.length) return;
+          const items = [...focusable];
+          const first = items[0];
+          const last = items.at(-1);
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+          if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          break;
+        }
+        default: break;
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [selectedFile, goNext, goPrev, close]);
+  }, [selectedFile, goNext, goPrev, close, toggleFavorite, toggleMetadataPanel]);
 
+  // ── Early exit when no file is selected ────────────────────────────────────
   if (!selectedFile) return null;
 
   const mediaUrl = getMediaUrl(selectedFile.path);
-  const isImage = selectedFile.type === 'image';
 
-  const handleWheel = (e) => {
-    if (!isImage) return;
-    setZoom((z) => {
-      const newZoom = e.deltaY < 0 ? Math.min(z + 0.25, 5) : Math.max(z - 0.25, 0.5);
-      if (newZoom <= 1) setPan({ x: 0, y: 0 });
-      return newZoom;
-    });
-  };
-
-  const handleMouseDown = (e) => {
+  const handlePointerDown = (e) => {
     if (zoom > 1 && isImage) {
       setIsDragging(true);
       setStartPos({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      e.currentTarget.setPointerCapture(e.pointerId);
     }
   };
 
-  const handleMouseMove = (e) => {
+  const handlePointerMove = (e) => {
     if (isDragging && zoom > 1 && isImage) {
-      setPan({
-        x: e.clientX - startPos.x,
-        y: e.clientY - startPos.y
-      });
+      setPan({ x: e.clientX - startPos.x, y: e.clientY - startPos.y });
     }
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handlePointerUp = () => setIsDragging(false);
 
-  const handleZoomIn = (e) => {
-    e.stopPropagation();
-    setZoom(z => Math.min(z + 0.25, 5));
-  };
-
-  const handleZoomOut = (e) => {
-    e.stopPropagation();
-    setZoom(z => {
-      const newZoom = Math.max(z - 0.25, 0.5);
-      if (newZoom <= 1) setPan({ x: 0, y: 0 });
-      return newZoom;
-    });
-  };
-
-  const handleResetZoom = (e) => {
-    e.stopPropagation();
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  };
 
   return (
     <div
       id="lightbox"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/95 backdrop-blur-sm animate-fade-in"
+      ref={backdropRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview: ${selectedFile.name}`}
+      className="lightbox-backdrop"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       onClick={(e) => e.target === e.currentTarget && close()}
-      onWheel={handleWheel}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
-      {/* Close */}
-      <button
-        id="lightbox-close"
-        onClick={close}
-        className="absolute top-4 right-4 btn-ghost p-2 rounded-lg z-10 bg-surface-900/50 hover:bg-surface-800"
-        aria-label="Close"
+      {/* ── Top toolbar ─────────────────────────────────────────────────────── */}
+      <div
+        className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3
+                   bg-gradient-to-b from-black/80 to-transparent pointer-events-none"
+        onClick={(e) => e.stopPropagation()}
       >
-        <X size={20} />
-      </button>
+        {/* Left: counter + filename */}
+        <div className="pointer-events-none flex items-center gap-3">
+          <span className="text-white/40 text-xs tabular-nums">
+            {currentIndex + 1} / {files.length}
+          </span>
+          <span className="text-white/70 text-sm font-medium max-w-[200px] sm:max-w-sm truncate" title={selectedFile.name}>
+            {selectedFile.name}
+          </span>
+        </div>
 
-      {/* Navigation prev */}
-      {currentIndex > 0 && (
-        <button
-          id="lightbox-prev"
-          onClick={(e) => { e.stopPropagation(); goPrev(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 btn-ghost p-3 rounded-xl z-10 bg-surface-900/50 hover:bg-surface-800"
-          aria-label="Previous"
-        >
-          <ChevronLeft size={24} />
-        </button>
-      )}
-
-      {/* Navigation next */}
-      {currentIndex < files.length - 1 && (
-        <button
-          id="lightbox-next"
-          onClick={(e) => { e.stopPropagation(); goNext(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 btn-ghost p-3 rounded-xl z-10 bg-surface-900/50 hover:bg-surface-800"
-          aria-label="Next"
-        >
-          <ChevronRight size={24} />
-        </button>
-      )}
-
-      {/* Media content */}
-      <div 
-        className="flex flex-col items-center justify-center w-full h-full px-16 py-16 overflow-hidden animate-scale-in pointer-events-none"
-      >
-        {isImage && (
-          <img
-            src={mediaUrl}
-            alt={selectedFile.name}
-            onMouseDown={handleMouseDown}
-            onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl pointer-events-auto select-none"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
-              transition: isDragging ? 'none' : 'transform 0.15s ease-out'
-            }}
-            draggable={false}
+        {/* Right: action cluster */}
+        <div className="flex items-center gap-1 pointer-events-auto">
+          {/* Favorite */}
+          <ActionBtn
+            id="lightbox-fav"
+            onClick={() => toggleFavorite(selectedFile.path)}
+            icon={Heart}
+            label={isFav ? 'Remove favorite (F)' : 'Add to favorites (F)'}
+            active={isFav}
+            danger
           />
-        )}
 
-        {selectedFile.type === 'video' && (
-          <video
-            src={mediaUrl}
-            controls
-            autoPlay
-            onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-full rounded-lg shadow-2xl pointer-events-auto"
+          {/* Copy path */}
+          <ActionBtn
+            id="lightbox-share"
+            onClick={handleShare}
+            icon={copied ? Check : Copy}
+            label={copied ? 'Copied!' : 'Copy path'}
+            active={copied}
           />
-        )}
 
-        {selectedFile.type === 'audio' && (
-          <div className="w-full max-w-md p-8 card flex flex-col items-center gap-6 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="w-20 h-20 rounded-full bg-accent-500/20 flex items-center justify-center">
-              <Info size={32} className="text-accent-400" />
-            </div>
-            <audio src={mediaUrl} controls className="w-full" />
-          </div>
-        )}
-
-        {/* File info bar & Zoom controls */}
-        <div 
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 text-sm bg-surface-900/80 backdrop-blur border border-surface-800 px-6 py-3 rounded-full pointer-events-auto shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="text-surface-200 font-medium max-w-[200px] truncate" title={selectedFile.name}>{selectedFile.name}</span>
-          <span className="badge badge-surface">{selectedFile.ext.toUpperCase()}</span>
-          <span className="text-surface-500 hidden sm:block">{formatSize(selectedFile.size)}</span>
-          <span className="text-surface-600 text-xs hidden sm:block">{currentIndex + 1} / {files.length}</span>
-
-          {isImage && (
-            <div className="flex items-center gap-1 border-l border-surface-700 pl-4 ml-2">
-              <button onClick={handleZoomOut} className="p-1.5 text-surface-400 hover:text-white hover:bg-surface-800 rounded-md transition-colors" title="Zoom Out (-)">
-                <ZoomOut size={16} />
-              </button>
-              <button onClick={handleResetZoom} className="p-1.5 text-surface-400 hover:text-white hover:bg-surface-800 rounded-md transition-colors w-12 text-center text-xs font-mono" title="Reset Zoom">
-                {Math.round(zoom * 100)}%
-              </button>
-              <button onClick={handleZoomIn} className="p-1.5 text-surface-400 hover:text-white hover:bg-surface-800 rounded-md transition-colors" title="Zoom In (+)">
-                <ZoomIn size={16} />
-              </button>
-            </div>
-          )}
+          {/* Metadata panel */}
+          <ActionBtn
+            id="lightbox-info"
+            onClick={toggleMetadataPanel}
+            icon={Info}
+            label="File info (I)"
+            active={metadataPanelOpen}
+          />
 
           {/* Download */}
           <a
             id="lightbox-download"
             href={mediaUrl}
             download={selectedFile.name}
-            className="btn-ghost px-2 py-1 ml-2 border-l border-surface-700 pl-4 rounded-none"
+            className="lightbox-action-btn"
+            aria-label="Download"
             title="Download"
+            onClick={(e) => e.stopPropagation()}
           >
             <Download size={16} />
           </a>
+
+          {/* Close */}
+          <button
+            id="lightbox-close"
+            ref={closeButtonRef}
+            onClick={close}
+            className="lightbox-action-btn ml-1 border border-white/10"
+            aria-label="Close (Esc)"
+            title="Close (Esc)"
+          >
+            <X size={17} />
+          </button>
         </div>
+      </div>
+
+      {/* ── Main content area ────────────────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0 w-full mt-0">
+
+        {/* ── Media viewer ──────────────────────────────────────────────────── */}
+        <div
+          className="flex-1 flex items-center justify-center relative min-w-0 overflow-hidden"
+          onPointerDown={handlePointerDown}
+        >
+          {/* Prev arrow */}
+          {currentIndex > 0 && (
+            <button
+              id="lightbox-prev"
+              onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              className="absolute left-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
+                         bg-black/40 hover:bg-black/70 border border-white/10
+                         text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
+              aria-label="Previous (←)"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+
+          {/* Next arrow */}
+          {currentIndex < files.length - 1 && (
+            <button
+              id="lightbox-next"
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+              className="absolute right-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
+                         bg-black/40 hover:bg-black/70 border border-white/10
+                         text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
+              aria-label="Next (→)"
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
+
+          {/* Image */}
+          {isImage && (
+            <img
+              src={mediaUrl}
+              alt={selectedFile.name}
+              className="max-w-full max-h-full object-contain rounded-[6px] select-none animate-zoom-in"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                transition: isDragging ? 'none' : 'transform 0.12s ease-out',
+                touchAction: zoom > 1 ? 'none' : 'auto',
+                maxHeight: 'calc(100vh - 80px)',
+              }}
+              draggable={false}
+              onError={() => setMediaError(true)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+
+          {/* Video */}
+          {selectedFile.type === 'video' && (
+            <video
+              src={mediaUrl}
+              controls
+              autoPlay
+              className="max-w-full max-h-full rounded-[6px] shadow-2xl animate-zoom-in"
+              style={{ maxHeight: 'calc(100vh - 80px)' }}
+              onError={() => setMediaError(true)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+
+          {/* Audio */}
+          {selectedFile.type === 'audio' && (
+            <div
+              className="flex flex-col items-center gap-6 p-10 animate-zoom-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/40">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              </div>
+              <p className="text-white/60 text-sm font-medium max-w-xs text-center truncate">{selectedFile.name}</p>
+              <audio src={mediaUrl} controls className="w-72" onError={() => setMediaError(true)} />
+            </div>
+          )}
+
+          {/* PDF */}
+          {selectedFile.type === 'document' && selectedFile.ext === 'pdf' && (
+            <iframe
+              src={mediaUrl}
+              title={`PDF preview: ${selectedFile.name}`}
+              className="w-full rounded-[6px] bg-white animate-zoom-in"
+              style={{ maxWidth: '90vw', height: 'calc(100vh - 80px)' }}
+              onLoad={() => setMediaError(false)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+
+          {/* Error */}
+          {mediaError && (
+            <p role="alert" className="absolute top-16 left-1/2 -translate-x-1/2
+                                       rounded-card bg-red-500/12 border border-red-500/25
+                                       px-4 py-2.5 text-sm text-red-300">
+              This media file could not be loaded.
+            </p>
+          )}
+
+          {/* ── Bottom zoom bar (images only) ─────────────────────────────────── */}
+          {isImage && (
+            <div
+              className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1
+                         bg-black/60 backdrop-blur-md border border-white/10 rounded-pill
+                         px-2 py-1.5 shadow-overlay"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; })}
+                className="lightbox-action-btn w-7 h-7"
+                aria-label="Zoom out (-)"
+                title="Zoom out (-)"
+              >
+                <ZoomOut size={13} />
+              </button>
+
+              <button
+                onClick={resetZoom}
+                className="px-2 text-[11px] font-mono text-white/50 hover:text-white/80 transition-colors min-w-[3rem] text-center"
+                aria-label="Reset zoom"
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+
+              <button
+                onClick={() => setZoom((z) => Math.min(z + 0.25, 5))}
+                className="lightbox-action-btn w-7 h-7"
+                aria-label="Zoom in (+)"
+                title="Zoom in (+)"
+              >
+                <ZoomIn size={13} />
+              </button>
+
+              {zoom !== 1 && (
+                <button
+                  onClick={resetZoom}
+                  className="lightbox-action-btn w-7 h-7 border-l border-white/10 ml-1 pl-1 rounded-none"
+                  aria-label="Reset zoom"
+                  title="Reset zoom"
+                >
+                  <RotateCcw size={12} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Metadata panel ────────────────────────────────────────────────── */}
+        {metadataPanelOpen && (
+          <MetadataPanel file={selectedFile} onClose={toggleMetadataPanel} />
+        )}
       </div>
     </div>
   );

@@ -1,189 +1,183 @@
-const ScanSession = require('../models/ScanSession');
-const { normalizePath, checkAccessAsync, scanDirectoryAsync, buildFolderTree } = require('../utils/scanner');
-const cache = require('../utils/scanCache');
+const { getDb } = require('../db');
+const { runScan } = require('../utils/scannerJob');
+const { normalizePath, checkAccessAsync } = require('../utils/scanner');
 
 /**
- * Scan a directory (or use cache if available)
+ * POST /api/directory/scan
+ * Body: { path: string }
  */
 const scan = async (req, res) => {
+  const { path: rawPath } = req.body;
+  if (!rawPath) return res.status(400).json({ error: 'Path is required' });
+
+  const rootPath = normalizePath(rawPath);
+  const access = await checkAccessAsync(rootPath);
+  if (!access.accessible) {
+    return res.status(404).json({ error: access.error, path: rootPath });
+  }
+
   try {
-    const { path: dirPath } = req.body;
+    const db = await getDb();
+    
+    // Check if a pending/scanning scan already exists for this path
+    const existing = await db.get(
+      `SELECT id, status FROM scans WHERE path = ? AND status IN ('pending', 'scanning')`,
+      [rootPath]
+    );
 
-    if (!dirPath) {
-      return res.status(400).json({ error: 'Path is required' });
+    if (existing) {
+      return res.json({ scanId: existing.id, status: existing.status, path: rootPath });
     }
 
-    const normalizedPath = normalizePath(dirPath);
+    const result = await db.run(
+      `INSERT INTO scans (path, status) VALUES (?, 'pending')`,
+      [rootPath]
+    );
+    const scanId = result.lastID;
 
-    // 1. Check Cache
-    if (cache.has(normalizedPath)) {
-      const cachedData = cache.get(normalizedPath);
-      return res.json({
-        path: normalizedPath,
-        cached: true,
-        totalFiles: cachedData.files.length,
-        folderTree: cachedData.folderTree,
-      });
-    }
+    // Start background worker
+    runScan(scanId, rootPath).catch(console.error);
 
-    // 2. Access Check
-    const access = await checkAccessAsync(normalizedPath);
-    if (!access.accessible) {
-      return res.status(404).json({
-        error: access.error,
-        path: normalizedPath,
-      });
-    }
-
-    // 3. Scan Directory (Async)
-    const scanStartTime = Date.now();
-    const result = await scanDirectoryAsync(normalizedPath, normalizedPath);
-    const scanDuration = Date.now() - scanStartTime;
-
-    // 4. Build Tree
-    const folderTree = buildFolderTree(result.folders, normalizedPath);
-
-    // 5. Store in Memory Cache
-    cache.set(normalizedPath, {
-      files: result.files,
-      folders: result.folders,
-      folderTree,
-    });
-
-    // 6. Persist to MongoDB (graceful failure)
-    try {
-      await ScanSession.findOneAndUpdate(
-        { path: normalizedPath },
-        {
-          path: normalizedPath,
-          fileCount: result.files.length,
-          folderCount: result.folders.length,
-          scannedAt: new Date(),
-          durationMs: scanDuration,
-        },
-        { upsert: true, new: true }
-      );
-    } catch (dbError) {
-      console.warn(`[WARN] MongoDB not available. Scan session not saved for ${normalizedPath}`);
-    }
-
-    res.json({
-      path: normalizedPath,
-      cached: false,
-      totalFiles: result.files.length,
-      folderTree,
-      errors: result.errors,
-    });
-  } catch (error) {
-    console.error('Scan error:', error);
-    res.status(500).json({ error: 'Failed to scan directory', details: error.message });
+    res.status(202).json({ scanId, status: 'pending', path: rootPath });
+  } catch (err) {
+    console.error('Scan init error:', err);
+    res.status(500).json({ error: 'Database error' });
   }
 };
 
 /**
- * Get paginated and filtered files from cache
+ * GET /api/directory/scan/:id/status
  */
-const getFiles = async (req, res) => {
+const getScanStatus = async (req, res) => {
+  const scanId = req.params.id;
   try {
-    const { path: dirPath, page = 1, limit = 50, search = '', folder = '', sortField = 'date', sortOrder = 'desc' } = req.query;
-
-    if (!dirPath) {
-      return res.status(400).json({ error: 'Path is required' });
-    }
-
-    const normalizedPath = normalizePath(dirPath);
-    const cachedData = cache.get(normalizedPath);
-
-    if (!cachedData) {
-      return res.status(404).json({ error: 'Scan expired or not found. Please rescan.', needsRescan: true });
-    }
-
-    let { files } = cachedData;
-
-    // Filter by folder if specified
-    if (folder) {
-      files = files.filter(f => f.path.startsWith(folder));
-    }
-
-    // Filter by search (name AND relative path)
-    if (search) {
-      const q = search.toLowerCase();
-      files = files.filter(f => 
-        f.name.toLowerCase().includes(q) || 
-        f.relativePath.toLowerCase().includes(q)
-      );
-    }
-
-    // Dynamic Sorting
-    files = files.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortField) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-          break;
-        case 'size':
-          comparison = (a.size || 0) - (b.size || 0);
-          break;
-        case 'date':
-        default:
-          const dateA = a.modifiedAt ? new Date(a.modifiedAt).getTime() : 0;
-          const dateB = b.modifiedAt ? new Date(b.modifiedAt).getTime() : 0;
-          comparison = dateA - dateB;
-          break;
-      }
-      
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
-
-    // Paginate
-    const startIndex = (Number(page) - 1) * Number(limit);
-    const endIndex = startIndex + Number(limit);
-    const paginatedFiles = files.slice(startIndex, endIndex);
-
-    res.json({
-      path: normalizedPath,
-      totalMatches: files.length,
-      page: Number(page),
-      totalPages: Math.ceil(files.length / Number(limit)),
-      hasMore: endIndex < files.length,
-      files: paginatedFiles,
-    });
-  } catch (error) {
-    console.error('GetFiles error:', error);
-    res.status(500).json({ error: 'Failed to fetch files', details: error.message });
+    const db = await getDb();
+    const scan = await db.get(`SELECT * FROM scans WHERE id = ?`, [scanId]);
+    if (!scan) return res.status(404).json({ error: 'Scan not found' });
+    res.json(scan);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
 /**
- * Get scan history
+ * GET /api/directory/list
+ * Query: ?parentPath=... (optional, if omitted fetches roots)
+ */
+const listDirectories = async (req, res) => {
+  const { parentPath } = req.query;
+  try {
+    const db = await getDb();
+    let query = `SELECT path, name FROM directories WHERE parent_path `;
+    let params = [];
+    if (parentPath) {
+      query += `= ? ORDER BY name ASC`;
+      params.push(parentPath);
+    } else {
+      query += `IS NULL ORDER BY name ASC`;
+    }
+
+    const dirs = await db.all(query, params);
+    
+    // Format for FolderTree node structure
+    const formatted = await Promise.all(dirs.map(async (d) => {
+      // Check if it has children for UI expansion
+      const hasChildren = await db.get(`SELECT 1 FROM directories WHERE parent_path = ? LIMIT 1`, [d.path]);
+      return {
+        path: d.path,
+        name: d.name,
+        hasChildren: !!hasChildren
+      };
+    }));
+
+    res.json({ directories: formatted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/directory/search
+ * Query: ?q=...&root=...
+ */
+const searchDirectories = async (req, res) => {
+  const { q, root } = req.query;
+  if (!q || !root) return res.json({ directories: [] });
+  
+  try {
+    const db = await getDb();
+    // Use LIKE to find matching directories that are inside the root path
+    const rootLike = root + '%';
+    const queryLike = '%' + q + '%';
+    
+    const dirs = await db.all(
+      `SELECT path, name FROM directories WHERE path LIKE ? AND name LIKE ? ORDER BY name ASC LIMIT 50`,
+      [rootLike, queryLike]
+    );
+    
+    // We don't need hasChildren for search results since they are flat
+    const formatted = dirs.map(d => ({
+      path: d.path,
+      name: d.name,
+      hasChildren: false
+    }));
+
+    res.json({ directories: formatted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/directory/history
+ * Fetch the latest scan for each unique root path
  */
 const getHistory = async (req, res) => {
   try {
-    const sessions = await ScanSession.find().sort({ scannedAt: -1 }).limit(10);
-    res.json(sessions);
-  } catch (error) {
-    console.warn('[WARN] MongoDB not available. Returning empty history array.');
-    res.json([]);
+    const db = await getDb();
+    const history = await db.all(`
+      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt
+      FROM scans s
+      INNER JOIN (
+          SELECT path, MAX(started_at) as max_started
+          FROM scans
+          GROUP BY path
+      ) latest ON s.path = latest.path AND s.started_at = latest.max_started
+      ORDER BY s.started_at DESC
+      LIMIT 10
+    `);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
 /**
- * Delete a scan session from history
+ * DELETE /api/directory/history
+ * Body: { path: string }
+ * Deletes all media, directories, and scans for a given root path.
  */
 const deleteHistory = async (req, res) => {
+  const { path: rootPath } = req.body;
+  if (!rootPath) return res.status(400).json({ error: 'Path is required' });
+
   try {
-    const { id } = req.params;
-    await ScanSession.findByIdAndDelete(id);
-    return res.status(200).json({ message: 'Session deleted' });
+    const db = await getDb();
+    await db.run('BEGIN TRANSACTION');
+    try {
+      const rootLike = rootPath + '%';
+      await db.run(`DELETE FROM media WHERE path LIKE ?`, [rootLike]);
+      await db.run(`DELETE FROM directories WHERE path LIKE ?`, [rootLike]);
+      await db.run(`DELETE FROM scans WHERE path = ?`, [rootPath]);
+      await db.run('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      await db.run('ROLLBACK');
+      throw err;
+    }
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
-module.exports = {
-  scan,
-  getFiles,
-  getHistory,
-  deleteHistory,
-};
+module.exports = { scan, getScanStatus, listDirectories, searchDirectories, getHistory, deleteHistory };

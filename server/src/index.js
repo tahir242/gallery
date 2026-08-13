@@ -2,14 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { connectDB } = require('./config/db');
 
-// Route imports
 const directoryRoutes = require('./routes/directory');
 const mediaRoutes = require('./routes/media');
-
-// Connect to MongoDB
-connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,31 +25,24 @@ app.use('/api/directory', directoryRoutes);
 app.use('/api/media', mediaRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-  });
-});
+app.get('/api/health', (_req, res) =>
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+);
 
-// ─── 404 Handler ──────────────────────────────────────────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ error: `Route ${req.originalUrl} not found` });
-});
+// 404 handler
+app.use((req, res) =>
+  res.status(404).json({ error: `Route ${req.originalUrl} not found` })
+);
 
-// ─── Global Error Handler ─────────────────────────────────────────────────────
-app.use((err, req, res, next) => {
+// Global error handler
+app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err.stack);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message,
-  });
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`🚀 Gallery Server running on http://localhost:${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🚀 Gallery Server (stateless) running on http://localhost:${PORT}`);
 });
 
 module.exports = app;

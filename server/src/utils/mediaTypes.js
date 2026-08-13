@@ -17,6 +17,9 @@ const MEDIA_TYPES = {
   avif: 'image',
   ico: 'image',
 
+  // Documents
+  pdf: 'document',
+
   // Videos
   mp4: 'video',
   mkv: 'video',
@@ -78,6 +81,7 @@ const getMimeType = (ext) => {
     heif: 'image/heif',
     avif: 'image/avif',
     ico: 'image/x-icon',
+    pdf: 'application/pdf',
     mp4: 'video/mp4',
     mkv: 'video/x-matroska',
     avi: 'video/x-msvideo',

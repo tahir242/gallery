@@ -1,56 +1,39 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 120000, // 2 min for large directory scans
-  headers: { 'Content-Type': 'application/json' },
-});
+const api = axios.create({ baseURL: '/api' });
 
-// ─── Directory API ────────────────────────────────────────────────────────────
-
-/**
- * Scan a directory path
- * @param {string} path - local or UNC path
- * @param {string} [label] - optional display label
- */
-export const scanDirectory = (path, label = '') =>
-  api.post('/directory/scan', { path, label }).then((r) => r.data);
-
-/**
- * Fetch paginated files from cache
- */
-export const fetchFiles = ({ path, page = 1, limit = 50, search = '', folder = '', sortField = 'date', sortOrder = 'desc' }) =>
-  api.get('/directory/files', {
-    params: { path, page, limit, search, folder, sortField, sortOrder }
-  }).then((r) => r.data);
-
-/**
- * Fetch scan session history
- */
-export const getHistory = () =>
-  api.get('/directory/history').then((r) => r.data);
-
-/**
- * Delete a scan session
- * @param {string} id
- */
-export const deleteSession = (id) =>
-  api.delete(`/directory/history/${id}`).then((r) => r.data);
-
-// ─── Media API ────────────────────────────────────────────────────────────────
-
-/**
- * Build a media serve URL for a file path
- * @param {string} filePath
- * @returns {string}
- */
 export const getMediaUrl = (filePath) =>
   `/api/media/serve?path=${encodeURIComponent(filePath)}`;
 
-/**
- * Health check
- */
 export const healthCheck = () =>
   api.get('/health').then((r) => r.data);
 
-export default api;
+export const startScan = (path) =>
+  api.post('/directory/scan', { path }).then(r => r.data);
+
+export const getScanStatus = (scanId) =>
+  api.get(`/directory/scan/${scanId}/status`).then(r => r.data);
+
+export const getDirectories = (parentPath) =>
+  api.get('/directory/list', { params: { parentPath } }).then(r => r.data.directories);
+
+export const searchDirectories = (q, root) =>
+  api.get('/directory/search', { params: { q, root } }).then(r => r.data.directories);
+
+export const getMedia = (params) =>
+  api.get('/media/list', { params }).then(r => r.data);
+
+export const getMediaTypes = (directoryPath) =>
+  api.get('/media/types', { params: { directoryPath } }).then(r => r.data);
+
+export const getHistory = () =>
+  api.get('/directory/history').then(r => r.data);
+
+export const deleteHistory = (path) =>
+  api.delete('/directory/history', { data: { path } }).then(r => r.data);
+
+export const toggleFavoriteApi = (path) =>
+  api.post('/media/favorite', { path }).then(r => r.data);
+
+export const getFavoriteCountApi = () =>
+  api.get('/media/favorites/count').then(r => r.data.count);

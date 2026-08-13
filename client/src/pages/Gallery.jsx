@@ -1,30 +1,16 @@
 import FolderTree from '../components/FolderTree';
-import SearchBar from '../components/SearchBar';
 import MediaGrid from '../components/MediaGrid';
 import LightBox from '../components/LightBox';
 import useGalleryStore from '../store/galleryStore';
-
 const Gallery = () => {
-  const { sidebarOpen } = useGalleryStore();
-
   return (
-    <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
-      {/* Sidebar */}
-      {sidebarOpen && (
-        <FolderTree />
-      )}
+    <div className="relative flex flex-1 min-h-0 overflow-hidden">
+      {/* Sidebar — always mounted, visibility controlled by transform in FolderTree */}
+      <FolderTree />
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 md:p-6 h-full flex flex-col">
-          {/* Search bar */}
-          <div className="mb-5">
-            <SearchBar />
-          </div>
-
-          {/* Media grid */}
-          <MediaGrid />
-        </div>
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <MediaGrid />
       </main>
 
       {/* Lightbox */}
