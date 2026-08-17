@@ -4,10 +4,14 @@ import Home from './pages/Home';
 import Gallery from './pages/Gallery';
 import Toast from './components/Toast';
 import useGalleryStore from './store/galleryStore';
+import { useShallow } from 'zustand/react/shallow';
 import { TooltipProvider } from './components/ui/Tooltip';
 
 function App() {
-  const { scanStatus, themePreference } = useGalleryStore();
+  const { scanStatus, themePreference } = useGalleryStore(useShallow(s => ({
+    scanStatus: s.scanStatus,
+    themePreference: s.themePreference
+  })));
   const [view, setView] = useState('home'); // 'home' | 'gallery'
 
   const handleScanComplete = () => setView('gallery');
