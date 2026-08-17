@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import {
   LayoutGrid, List, Image as ImageIcon, Loader2,
   Columns3, ChevronDown,
@@ -6,6 +6,7 @@ import {
 import useGalleryStore from '../store/galleryStore';
 import MediaCard, { MasonryCard } from './MediaCard';
 import Masonry from 'react-masonry-css';
+import { Tooltip } from './ui/Tooltip';
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
@@ -15,8 +16,8 @@ const formatSize = (bytes) => {
 };
 
 /* ─── List row ──────────────────────────────────────────────────────────────── */
-const ListRow = ({ file }) => {
-  const { setSelectedFile } = useGalleryStore();
+const ListRow = memo(({ file }) => {
+  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
   const TYPE_COLOR = {
     image:    'text-emerald-400',
     video:    'text-blue-400',
@@ -37,31 +38,34 @@ const ListRow = ({ file }) => {
       <span className="flex-1 text-[13px] text-surface-300 truncate group-hover:text-surface-100 transition-colors">
         {file.name}
       </span>
-      <span className="text-[11px] text-surface-700 hidden md:block truncate max-w-xs" title={file.directory}>
-        {file.directory}
-      </span>
+      <Tooltip content={file.directory}>
+        <span className="text-[11px] text-surface-700 hidden md:block truncate max-w-[200px] xl:max-w-xs">
+          {file.directory}
+        </span>
+      </Tooltip>
       <span className="text-[11px] text-surface-600 flex-shrink-0 w-16 text-right tabular-nums">
         {formatSize(file.size)}
       </span>
     </button>
   );
-};
+});
 
 /* ─── View mode button ──────────────────────────────────────────────────────── */
 const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
-  <button
-    id={`view-${mode}`}
-    onClick={() => onClick(mode)}
-    className={`p-1.5 rounded-[5px] transition-colors duration-100 ${
-      current === mode
-        ? 'bg-accent-600 text-white'
-        : 'text-surface-600 hover:text-surface-300'
-    }`}
-    aria-label={label}
-    title={label}
-  >
-    <Icon size={14} />
-  </button>
+  <Tooltip content={label}>
+    <button
+      id={`view-${mode}`}
+      onClick={() => onClick(mode)}
+      className={`p-1.5 rounded-[5px] transition-colors duration-100 ${
+        current === mode
+          ? 'bg-accent-600 text-white'
+          : 'text-surface-600 hover:text-surface-300'
+      }`}
+      aria-label={label}
+    >
+      <Icon size={14} />
+    </button>
+  </Tooltip>
 );
 
 /* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
@@ -234,35 +238,25 @@ const MediaGrid = () => {
               className="masonry-grid pb-8"
               columnClassName="masonry-grid_column"
             >
-              {files.map((file, index) => {
-                const isLast = index === files.length - 1;
-                return (
+              {files.map((file, index) => (
                   <div
                     key={`${file.path}-${index}`}
                     className="masonry-item"
-                    ref={isLast ? lastElementRef : null}
                   >
                     <MasonryCard file={file} />
                   </div>
-                );
-              })}
+              ))}
             </Masonry>
           )}
 
           {/* ── Uniform grid layout ──────────────────────────────────────────── */}
           {files.length > 0 && viewMode === 'grid' && (
             <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 pb-8">
-              {files.map((file, index) => {
-                const isLast = index === files.length - 1;
-                return (
-                  <div
-                    key={`${file.path}-${index}`}
-                    ref={isLast ? lastElementRef : null}
-                  >
+              {files.map((file, index) => (
+                  <div key={`${file.path}-${index}`}>
                     <MediaCard file={file} />
                   </div>
-                );
-              })}
+              ))}
             </div>
           )}
 
@@ -277,18 +271,17 @@ const MediaGrid = () => {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 w-16 text-right">Size</span>
               </div>
               <div className="h-px bg-surface-800/50 mb-1" />
-              {files.map((file, index) => {
-                const isLast = index === files.length - 1;
-                return (
-                  <div
-                    key={`${file.path}-${index}`}
-                    ref={isLast ? lastElementRef : null}
-                  >
+              {files.map((file, index) => (
+                  <div key={`${file.path}-${index}`}>
                     <ListRow file={file} />
                   </div>
-                );
-              })}
+              ))}
             </div>
+          )}
+
+          {/* Sentinel element for infinite scroll */}
+          {files.length > 0 && hasMore && !isLoadingMore && (
+            <div ref={lastElementRef} className="h-1 w-full" />
           )}
 
           {/* Loading indicator */}

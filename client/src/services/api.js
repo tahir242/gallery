@@ -8,8 +8,11 @@ export const getMediaUrl = (filePath) =>
 export const healthCheck = () =>
   api.get('/health').then((r) => r.data);
 
-export const startScan = (path) =>
-  api.post('/directory/scan', { path }).then(r => r.data);
+export const startScan = (path, extensions) =>
+  api.post('/directory/scan', { path, extensions }).then(r => r.data);
+
+export const updateScanExtensions = (scanId, extensions) =>
+  api.put(`/directory/scan/${scanId}/extensions`, { extensions }).then(r => r.data);
 
 export const getScanStatus = (scanId) =>
   api.get(`/directory/scan/${scanId}/status`).then(r => r.data);

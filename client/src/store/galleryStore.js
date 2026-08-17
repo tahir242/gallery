@@ -5,7 +5,8 @@ import {
   getMedia,
   getMediaTypes,
   toggleFavoriteApi,
-  getFavoriteCountApi
+  getFavoriteCountApi,
+  updateScanExtensions as apiUpdateScanExtensions
 } from '../services/api';
 
 const getStoredTheme = () => {
@@ -171,7 +172,7 @@ const useGalleryStore = create((set, get) => ({
     clearInterval(get()._pollInterval);
     set({
       currentPath: '', scanId: null, scanStatus: 'idle', scanError: null,
-      totalFiles: 0, indexedCount: 0,
+      totalFiles: 0, indexedCount: 0, directoriesDiscovered: 0, selectedExtensions: [],
       files: [], page: 1, hasMore: false, totalMatches: 0,
       availableFileTypes: [], filesError: null,
       filesRequestId: get().filesRequestId + 1,
@@ -181,7 +182,7 @@ const useGalleryStore = create((set, get) => ({
     });
   },
 
-  startScanAction: async (rootPath) => {
+  startScanAction: async (rootPath, extensions = []) => {
     clearInterval(get()._pollInterval);
 
     set({
@@ -190,6 +191,7 @@ const useGalleryStore = create((set, get) => ({
       scanError: null,
       totalFiles: 0,
       indexedCount: 0,
+      directoriesDiscovered: 0,
       files: [],
       page: 1,
       hasMore: false,
@@ -204,10 +206,11 @@ const useGalleryStore = create((set, get) => ({
       metadataPanelOpen: false,
       showFavorites: false,
       totalFavoritesCount: 0,
+      selectedExtensions: extensions,
     });
 
     try {
-      const res = await apiStartScan(rootPath);
+      const res = await apiStartScan(rootPath, extensions);
       set({ scanId: res.scanId });
       get().fetchHistory();
       get().fetchFavoriteCount();
@@ -216,12 +219,16 @@ const useGalleryStore = create((set, get) => ({
       get().loadFiles(true);
 
       const interval = setInterval(async () => {
+        if (get()._pollInterval !== interval) return;
         try {
           const statusRes = await getScanStatus(res.scanId);
+          if (get()._pollInterval !== interval) return;
+
           set({
             scanStatus: statusRes.status,
             totalFiles: statusRes.files_discovered,
             indexedCount: statusRes.files_indexed,
+            directoriesDiscovered: statusRes.directories_discovered,
           });
 
           if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
@@ -232,6 +239,7 @@ const useGalleryStore = create((set, get) => ({
 
           if (statusRes.status === 'completed' || statusRes.status === 'error') {
             clearInterval(get()._pollInterval);
+            set({ _pollInterval: null }); // explicitly clear
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
             } else {
@@ -248,6 +256,18 @@ const useGalleryStore = create((set, get) => ({
       set({ _pollInterval: interval });
     } catch (err) {
       set({ scanStatus: 'error', scanError: `Failed to start scan: ${err.message}` });
+    }
+  },
+
+  updateExtensionsAction: async (extensions) => {
+    const { scanId } = get();
+    if (!scanId) return;
+    try {
+      set({ selectedExtensions: extensions });
+      await apiUpdateScanExtensions(scanId, extensions);
+      get().loadFiles(true);
+    } catch (e) {
+      console.error('Failed to update extensions:', e);
     }
   },
 

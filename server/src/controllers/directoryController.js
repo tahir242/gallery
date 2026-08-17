@@ -7,7 +7,7 @@ const { normalizePath, checkAccessAsync } = require('../utils/scanner');
  * Body: { path: string }
  */
 const scan = async (req, res) => {
-  const { path: rawPath } = req.body;
+  const { path: rawPath, extensions } = req.body;
   if (!rawPath) return res.status(400).json({ error: 'Path is required' });
 
   const rootPath = normalizePath(rawPath);
@@ -30,13 +30,13 @@ const scan = async (req, res) => {
     }
 
     const result = await db.run(
-      `INSERT INTO scans (path, status) VALUES (?, 'pending')`,
-      [rootPath]
+      `INSERT INTO scans (path, status, selected_extensions) VALUES (?, 'pending', ?)`,
+      [rootPath, extensions ? JSON.stringify(extensions) : null]
     );
     const scanId = result.lastID;
 
     // Start background worker
-    runScan(scanId, rootPath).catch(console.error);
+    runScan(scanId, rootPath, extensions).catch(console.error);
 
     res.status(202).json({ scanId, status: 'pending', path: rootPath });
   } catch (err) {
@@ -68,25 +68,38 @@ const listDirectories = async (req, res) => {
   const { parentPath } = req.query;
   try {
     const db = await getDb();
-    let query = `SELECT path, name FROM directories WHERE parent_path `;
+    let query = `SELECT d.path, d.name FROM directories d WHERE d.parent_path `;
     let params = [];
     if (parentPath) {
-      query += `= ? ORDER BY name ASC`;
+      query += `= ? ORDER BY d.name ASC`;
       params.push(parentPath);
     } else {
-      query += `IS NULL ORDER BY name ASC`;
+      query += `IS NULL ORDER BY d.name ASC`;
     }
 
     const dirs = await db.all(query, params);
     
     // Format for FolderTree node structure
     const formatted = await Promise.all(dirs.map(async (d) => {
-      // Check if it has children for UI expansion
-      const hasChildren = await db.get(`SELECT 1 FROM directories WHERE parent_path = ? LIMIT 1`, [d.path]);
+      // Use boundary conditions instead of LIKE/GLOB for O(log N) index SEARCH performance
+      const upperBound = d.path + String.fromCharCode(65535);
+      
+      const fileCount = await db.get(
+        `SELECT COUNT(*) as c FROM media WHERE directory_path >= ? AND directory_path < ?`, 
+        [d.path, upperBound]
+      ).then(r => r.c);
+      
+      const subdirCount = await db.get(
+        `SELECT COUNT(*) as c FROM directories WHERE parent_path >= ? AND parent_path < ?`, 
+        [d.path, upperBound]
+      ).then(r => r.c);
+
       return {
         path: d.path,
         name: d.name,
-        hasChildren: !!hasChildren
+        hasChildren: subdirCount > 0,
+        fileCount,
+        subdirCount
       };
     }));
 
@@ -180,4 +193,46 @@ const deleteHistory = async (req, res) => {
   }
 };
 
-module.exports = { scan, getScanStatus, listDirectories, searchDirectories, getHistory, deleteHistory };
+const updateExtensions = async (req, res) => {
+  const { id: scanId } = req.params;
+  const { extensions } = req.body;
+  if (!extensions || !Array.isArray(extensions)) {
+    return res.status(400).json({ error: 'extensions array is required' });
+  }
+
+  try {
+    const db = await getDb();
+    const scan = await db.get(`SELECT path FROM scans WHERE id = ?`, [scanId]);
+    if (!scan) return res.status(404).json({ error: 'Scan not found' });
+
+    await db.run('BEGIN TRANSACTION');
+    try {
+      // Delete media not in extensions
+      const rootLike = scan.path + '%';
+      if (extensions.length > 0) {
+        const extPlaceholders = extensions.map(() => '?').join(',');
+        const deleteQuery = `DELETE FROM media WHERE path LIKE ? AND ext NOT IN (${extPlaceholders})`;
+        await db.run(deleteQuery, [rootLike, ...extensions]);
+      } else {
+        await db.run(`DELETE FROM media WHERE path LIKE ?`, [rootLike]);
+      }
+
+      // Update scan record
+      await db.run(`UPDATE scans SET selected_extensions = ? WHERE id = ?`, [JSON.stringify(extensions), scanId]);
+      
+      await db.run('COMMIT');
+    } catch (err) {
+      await db.run('ROLLBACK');
+      throw err;
+    }
+
+    // re-trigger scan to find new extensions
+    runScan(scanId, scan.path, extensions).catch(console.error);
+    
+    res.json({ success: true, scanId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+module.exports = { scan, getScanStatus, listDirectories, searchDirectories, getHistory, deleteHistory, updateExtensions };
