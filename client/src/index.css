@@ -317,8 +317,9 @@
   .grid-card:hover .tile-overlay  { opacity: 1; }
   .grid-card:hover .tile-img      { transform: scale(1.05); }
 
+  /* ── Lightbox ─────────────────────────────────────────────────────────────── */
   .lightbox-backdrop {
-    @apply fixed inset-0 z-50 flex animate-fade-in;
+    @apply fixed inset-0 z-50 flex backdrop-blur-sm animate-fade-in;
     background-color: rgba(0, 0, 0, 0.96);
   }
 

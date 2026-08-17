@@ -5,7 +5,7 @@ const { isMediaFile, getMimeType } = require('./mediaTypes');
 
 const BATCH_SIZE = 2000;
 
-const runScan = async (scanId, rootPath, selectedExtensions = null) => {
+const runScan = async (scanId, rootPath) => {
   const db = await getDb();
   let dirsDiscovered = 0;
   let filesDiscovered = 0;
@@ -100,10 +100,8 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).slice(1).toLowerCase();
           if (isMediaFile(ext)) {
-            if (!selectedExtensions || selectedExtensions.includes(ext)) {
-              mediaFiles.push({ name: entry.name, fullPath: path.join(dirPath, entry.name), ext });
-              filesDiscovered++;
-            }
+            mediaFiles.push({ name: entry.name, fullPath: path.join(dirPath, entry.name), ext });
+            filesDiscovered++;
           }
         }
       }

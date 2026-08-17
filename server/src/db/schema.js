@@ -8,7 +8,6 @@ const initSchema = async (db) => {
       files_discovered INTEGER DEFAULT 0,
       files_indexed INTEGER DEFAULT 0,
       files_failed INTEGER DEFAULT 0,
-      selected_extensions TEXT,
       started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       completed_at DATETIME,
       error_message TEXT
@@ -47,12 +46,6 @@ const initSchema = async (db) => {
   
   try {
     await db.exec('ALTER TABLE media ADD COLUMN is_favorite INTEGER DEFAULT 0;');
-  } catch (err) {
-    // Column already exists, ignore
-  }
-
-  try {
-    await db.exec('ALTER TABLE scans ADD COLUMN selected_extensions TEXT;');
   } catch (err) {
     // Column already exists, ignore
   }

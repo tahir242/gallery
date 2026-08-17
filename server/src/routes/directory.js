@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { scan, getScanStatus, listDirectories, searchDirectories, getHistory, deleteHistory, updateExtensions } = require('../controllers/directoryController');
+const { scan, getScanStatus, listDirectories, searchDirectories, getHistory, deleteHistory } = require('../controllers/directoryController');
 
 router.post('/scan', scan);
-router.put('/scan/:id/extensions', updateExtensions);
 router.get('/scan/:id/status', getScanStatus);
 router.get('/list', listDirectories);
 router.get('/search', searchDirectories);

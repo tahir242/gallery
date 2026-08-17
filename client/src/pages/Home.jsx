@@ -1,21 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FolderSearch, Clock, Trash2, HardDrive, AlertCircle, ArrowRight, Image as ImageIcon, Video, FileText, Music, ChevronDown, ChevronUp } from 'lucide-react';
+import { FolderSearch, Clock, Trash2, HardDrive, AlertCircle, ArrowRight } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
-
-const GROUPS = [
-  { id: 'image', label: 'Photos', icon: ImageIcon, exts: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'heic', 'heif', 'avif', 'ico'] },
-  { id: 'video', label: 'Videos', icon: Video, exts: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp'] },
-  { id: 'audio', label: 'Audio', icon: Music, exts: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'] },
-  { id: 'document', label: 'Documents', icon: FileText, exts: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'] }
-];
 
 const Home = ({ onScanComplete }) => {
   const [inputValue, setInputValue] = useState('');
   const [localError, setLocalError] = useState('');
-  const [selectedGroups, setSelectedGroups] = useState({ image: true, video: true, audio: false, document: false });
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [selectedExts, setSelectedExts] = useState(new Set([...GROUPS[0].exts, ...GROUPS[1].exts]));
-
   const {
     scanStatus, scanError,
     history, deleteHistory, fetchHistory, startScanAction,
@@ -28,54 +17,14 @@ const Home = ({ onScanComplete }) => {
     fetchHistory();
   }, [fetchHistory]);
 
-  const toggleGroup = (groupId) => {
-    const group = GROUPS.find(g => g.id === groupId);
-    const isSelected = !selectedGroups[groupId];
-    setSelectedGroups(prev => ({ ...prev, [groupId]: isSelected }));
-    
-    setSelectedExts(prev => {
-      const next = new Set(prev);
-      if (isSelected) {
-        group.exts.forEach(e => next.add(e));
-      } else {
-        group.exts.forEach(e => next.delete(e));
-      }
-      return next;
-    });
-  };
-
-  const toggleExt = (ext, groupId) => {
-    setSelectedExts(prev => {
-      const next = new Set(prev);
-      if (next.has(ext)) next.delete(ext);
-      else next.add(ext);
-      
-      // Update group status if all or none selected
-      const group = GROUPS.find(g => g.id === groupId);
-      const allSelected = group.exts.every(e => next.has(e));
-      const noneSelected = group.exts.every(e => !next.has(e));
-      
-      setSelectedGroups(g => ({
-        ...g,
-        [groupId]: allSelected ? true : noneSelected ? false : g[groupId] // keep current if mixed
-      }));
-      
-      return next;
-    });
-  };
-
   const handleScan = async (pathToScan) => {
     const path = pathToScan || inputValue.trim();
     if (!path) {
       setLocalError('Please enter a directory path');
       return;
     }
-    if (selectedExts.size === 0) {
-      setLocalError('Please select at least one file type to index');
-      return;
-    }
     setLocalError('');
-    startScanAction(path, Array.from(selectedExts));
+    startScanAction(path);
     if (onScanComplete) onScanComplete();
   };
 
@@ -92,19 +41,21 @@ const Home = ({ onScanComplete }) => {
       <div className="pointer-events-none absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-violet-700/5 blur-[100px]" />
 
       {/* Hero */}
-      <div className="relative text-center mb-8 animate-slide-up" style={{ animationDelay: '0ms' }}>
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-[14px] bg-gradient-to-br from-accent-500 to-violet-600 mb-5 shadow-accent-glow mx-auto">
-          <FolderSearch size={24} className="text-white" />
+      <div className="relative text-center mb-10 animate-slide-up" style={{ animationDelay: '0ms' }}>
+        {/* Logo mark */}
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-[14px] bg-gradient-to-br from-accent-500 to-violet-600 mb-6 shadow-accent-glow mx-auto">
+          <FolderSearch size={28} className="text-white" />
         </div>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold text-surface-50 tracking-tight mb-3 text-balance">
+
+        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-surface-50 tracking-tight mb-4 text-balance">
           Your media,{' '}
           <span className="bg-gradient-to-r from-accent-400 to-violet-400 bg-clip-text text-transparent">
             beautifully
           </span>{' '}
           organized.
         </h1>
-        <p className="text-surface-500 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">
-          Where are your files located?
+        <p className="text-surface-500 text-base sm:text-lg max-w-sm mx-auto leading-relaxed">
+          Browse and search media files from any local or network directory.
         </p>
       </div>
 
@@ -113,9 +64,13 @@ const Home = ({ onScanComplete }) => {
         className="relative w-full max-w-xl animate-slide-up"
         style={{ animationDelay: '60ms' }}
       >
-        <div className="card p-5 sm:p-6 mb-4">
+        <div className="card p-5 sm:p-6">
 
-          <div className="flex flex-col gap-3 sm:flex-row mb-6">
+          <label htmlFor="path-input" className="block text-xs font-semibold text-surface-500 uppercase tracking-widest mb-3">
+            Directory Path
+          </label>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="path-input"
               type="text"
@@ -130,7 +85,7 @@ const Home = ({ onScanComplete }) => {
             <button
               id="scan-btn"
               onClick={() => handleScan()}
-              disabled={isScanning || !inputValue.trim() || selectedExts.size === 0}
+              disabled={isScanning || !inputValue.trim()}
               className="btn-primary flex-shrink-0 h-11"
             >
               {isScanning ? (
@@ -146,68 +101,6 @@ const Home = ({ onScanComplete }) => {
               )}
             </button>
           </div>
-          
-          <div className="mb-2">
-            <label className="block text-xs font-semibold text-surface-500 uppercase tracking-widest mb-3">
-              What should we look for?
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              {GROUPS.map(group => {
-                const Icon = group.icon;
-                const isSelected = selectedGroups[group.id];
-                return (
-                  <button
-                    key={group.id}
-                    onClick={() => toggleGroup(group.id)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-150 ${
-                      isSelected 
-                        ? 'bg-accent-500/10 border-accent-500/50 text-accent-400' 
-                        : 'bg-surface-900 border-surface-800 text-surface-400 hover:bg-surface-800'
-                    }`}
-                  >
-                    <Icon size={20} className="mb-2" />
-                    <span className="text-xs font-medium">{group.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            
-            <button 
-              onClick={() => setAdvancedOpen(!advancedOpen)}
-              className="flex items-center gap-1 text-xs text-surface-500 hover:text-surface-300 transition-colors"
-            >
-              {advancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              Advanced Options
-            </button>
-            
-            {advancedOpen && (
-              <div className="mt-3 p-3 bg-surface-900/50 rounded-lg border border-surface-800 space-y-3">
-                {GROUPS.map(group => (
-                  <div key={group.id}>
-                    <p className="text-[10px] uppercase font-semibold text-surface-600 mb-1.5">{group.label}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {group.exts.map(ext => {
-                        const checked = selectedExts.has(ext);
-                        return (
-                          <button
-                            key={ext}
-                            onClick={() => toggleExt(ext, group.id)}
-                            className={`px-2 py-1 text-[10px] font-mono rounded-md border transition-colors ${
-                              checked 
-                                ? 'bg-accent-500/10 border-accent-500/30 text-accent-300' 
-                                : 'bg-surface-950 border-surface-800 text-surface-500 hover:text-surface-300'
-                            }`}
-                          >
-                            .{ext}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
           {displayError && (
             <div className="mt-3 flex items-start gap-2 text-red-400 text-sm animate-fade-in">
@@ -215,18 +108,22 @@ const Home = ({ onScanComplete }) => {
               <span>{displayError}</span>
             </div>
           )}
+
+          <p className="mt-3 text-[11px] text-surface-700">
+            Supports local paths, UNC paths (\\server\share), and mapped drives.
+          </p>
         </div>
 
         {/* Recent scans */}
         {history && history.length > 0 && (
-          <div className="animate-fade-in">
-            <div className="flex items-center gap-2 mb-2 px-1 mt-2">
+          <div className="mt-4 animate-fade-in">
+            <div className="flex items-center gap-2 mb-2 px-1">
               <Clock size={12} className="text-surface-700" />
               <span className="text-[10px] text-surface-700 font-bold uppercase tracking-widest">Recent Scans</span>
             </div>
 
             <div className="flex flex-col gap-1">
-              {history.slice(0, 4).map((session) => (
+              {history.slice(0, 6).map((session) => (
                 <div
                   key={session.id}
                   role="button"
