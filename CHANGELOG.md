@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Number Formatting**: Applied consistent comma-separated number formatting to all tree-level folder and file counters.
 
 ### Fixed
+- Fixed a major race condition in the polling mechanism where overlapping status requests during heavy indexing could permanently freeze the UI in a "scanning" state.
+- Fixed an infinite scrolling architectural bug in the Masonry layout where `react-masonry-css` column distribution caused premature data fetching. Replaced mapped item observers with a unified sentinel component for accurate intersection tracking.
+- Fixed a JSX parsing syntax error that crashed the build after migrating `MediaCard.jsx` to the new custom tooltip component.
+- Removed unwanted tooltip hover states from the primary MediaGrid thumbnails.
 - Fixed severe scroll jumping and layout reflow in the Masonry view when loading new images by migrating from CSS `column-count` to a JavaScript-driven column distributor (`react-masonry-css`).
 - Fixed LightBox metadata scroll locking issues, ensuring mouse wheel actions exclusively scroll the active metadata pane rather than zooming the background image.
 - Visually aligned the LightBox info header by persisting a hidden close button element to preserve `justify-between` spacing.

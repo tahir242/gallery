@@ -219,8 +219,11 @@ const useGalleryStore = create((set, get) => ({
       get().loadFiles(true);
 
       const interval = setInterval(async () => {
+        if (get()._pollInterval !== interval) return;
         try {
           const statusRes = await getScanStatus(res.scanId);
+          if (get()._pollInterval !== interval) return;
+
           set({
             scanStatus: statusRes.status,
             totalFiles: statusRes.files_discovered,
@@ -236,6 +239,7 @@ const useGalleryStore = create((set, get) => ({
 
           if (statusRes.status === 'completed' || statusRes.status === 'error') {
             clearInterval(get()._pollInterval);
+            set({ _pollInterval: null }); // explicitly clear
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
             } else {
