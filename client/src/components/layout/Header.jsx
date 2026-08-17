@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Images, Loader2, Menu, Moon, Monitor, PanelLeft, Sun, Search, X } from 'lucide-react';
+import { Images, Loader2, Menu, Moon, Monitor, PanelLeft, Sun, Search, X, SlidersHorizontal, Image as ImageIcon, Video, FileText, Music, ChevronDown, ChevronUp } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import useGalleryStore from '../../store/galleryStore';
+import { Tooltip } from '../ui/Tooltip';
 
 /* ── Theme cycle order ─────────────────────────────────────────────────────── */
 const THEMES = ['dark', 'light', 'system'];
@@ -11,9 +13,167 @@ const THEME_ICONS = {
 };
 const THEME_LABELS = { dark: 'Dark', light: 'Light', system: 'System' };
 
+const GROUPS = [
+  { id: 'image', label: 'Photos', icon: ImageIcon, exts: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'heic', 'heif', 'avif', 'ico'] },
+  { id: 'video', label: 'Videos', icon: Video, exts: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp'] },
+  { id: 'audio', label: 'Audio', icon: Music, exts: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'] },
+  { id: 'document', label: 'Documents', icon: FileText, exts: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'] }
+];
+
+/* ── Filter Modal ──────────────────────────────────────────────────────────── */
+const FilterModal = ({ onClose }) => {
+  const { selectedExtensions, updateExtensionsAction } = useGalleryStore(useShallow(s => ({
+    selectedExtensions: s.selectedExtensions,
+    updateExtensionsAction: s.updateExtensionsAction
+  })));
+  
+  const [selectedExts, setSelectedExts] = useState(() => new Set(selectedExtensions || []));
+  const [selectedGroups, setSelectedGroups] = useState(() => {
+    const s = new Set(selectedExtensions || []);
+    const groups = { image: false, video: false, audio: false, document: false };
+    GROUPS.forEach(g => {
+      groups[g.id] = g.exts.every(e => s.has(e));
+    });
+    return groups;
+  });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const toggleGroup = (groupId) => {
+    const group = GROUPS.find(g => g.id === groupId);
+    const isSelected = !selectedGroups[groupId];
+    setSelectedGroups(prev => ({ ...prev, [groupId]: isSelected }));
+    
+    setSelectedExts(prev => {
+      const next = new Set(prev);
+      if (isSelected) {
+        group.exts.forEach(e => next.add(e));
+      } else {
+        group.exts.forEach(e => next.delete(e));
+      }
+      return next;
+    });
+  };
+
+  const toggleExt = (ext, groupId) => {
+    setSelectedExts(prev => {
+      const next = new Set(prev);
+      if (next.has(ext)) next.delete(ext);
+      else next.add(ext);
+      
+      const group = GROUPS.find(g => g.id === groupId);
+      const allSelected = group.exts.every(e => next.has(e));
+      const noneSelected = group.exts.every(e => !next.has(e));
+      
+      setSelectedGroups(g => ({
+        ...g,
+        [groupId]: allSelected ? true : noneSelected ? false : g[groupId]
+      }));
+      
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    if (selectedExts.size > 0) {
+      updateExtensionsAction(Array.from(selectedExts));
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-surface-950 border border-surface-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 border-b border-surface-800">
+          <h2 className="text-sm font-semibold text-surface-100 flex items-center gap-2">
+            <SlidersHorizontal size={16} className="text-accent-400" />
+            File Types
+          </h2>
+          <button onClick={onClose} className="btn-icon"><X size={16} /></button>
+        </div>
+        
+        <div className="p-5 overflow-y-auto">
+          <label className="block text-xs font-semibold text-surface-500 uppercase tracking-widest mb-3">
+            What should we index?
+          </label>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {GROUPS.map(group => {
+              const Icon = group.icon;
+              const isSelected = selectedGroups[group.id];
+              return (
+                <button
+                  key={group.id}
+                  onClick={() => toggleGroup(group.id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-150 ${
+                    isSelected 
+                      ? 'bg-accent-500/10 border-accent-500/50 text-accent-400' 
+                      : 'bg-surface-900 border-surface-800 text-surface-400 hover:bg-surface-800'
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span className="text-sm font-medium">{group.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          
+          <button 
+            onClick={() => setAdvancedOpen(!advancedOpen)}
+            className="flex items-center gap-1 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+          >
+            {advancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            Advanced Options
+          </button>
+          
+          {advancedOpen && (
+            <div className="mt-3 p-3 bg-surface-900/50 rounded-lg border border-surface-800 space-y-3">
+              {GROUPS.map(group => (
+                <div key={group.id}>
+                  <p className="text-[10px] uppercase font-semibold text-surface-600 mb-1.5">{group.label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {group.exts.map(ext => {
+                      const checked = selectedExts.has(ext);
+                      return (
+                        <button
+                          key={ext}
+                          onClick={() => toggleExt(ext, group.id)}
+                          className={`px-2 py-1 text-[10px] font-mono rounded-md border transition-colors ${
+                            checked 
+                              ? 'bg-accent-500/10 border-accent-500/30 text-accent-300' 
+                              : 'bg-surface-950 border-surface-800 text-surface-500 hover:text-surface-300'
+                          }`}
+                        >
+                          .{ext}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-surface-800 bg-surface-900/50 flex justify-end gap-3">
+          <button onClick={onClose} className="btn-secondary px-4">Cancel</button>
+          <button 
+            onClick={handleSave} 
+            disabled={selectedExts.size === 0}
+            className="btn-primary px-4"
+          >
+            Apply Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── Mobile search overlay ─────────────────────────────────────────────────── */
 const MobileSearchOverlay = ({ onClose }) => {
-  const { searchQuery, setSearchQuery } = useGalleryStore();
+  const { searchQuery, setSearchQuery } = useGalleryStore(useShallow(s => ({
+    searchQuery: s.searchQuery,
+    setSearchQuery: s.setSearchQuery
+  })));
   const [local, setLocal] = useState(searchQuery);
   const inputRef = useRef(null);
 
@@ -59,20 +219,22 @@ const MobileSearchOverlay = ({ onClose }) => {
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 const Header = ({ onHomeClick }) => {
   const {
-    scanStatus,
-    indexedCount,
-    totalFiles,
-    toggleSidebar,
-    sidebarOpen,
-    resetScan,
-    themePreference,
-    setThemePreference,
-    searchQuery,
-    setSearchQuery,
-    totalMatches,
-  } = useGalleryStore();
+    scanStatus, toggleSidebar, sidebarOpen, resetScan,
+    themePreference, setThemePreference, searchQuery, setSearchQuery, totalMatches
+  } = useGalleryStore(useShallow(s => ({
+    scanStatus: s.scanStatus,
+    toggleSidebar: s.toggleSidebar,
+    sidebarOpen: s.sidebarOpen,
+    resetScan: s.resetScan,
+    themePreference: s.themePreference,
+    setThemePreference: s.setThemePreference,
+    searchQuery: s.searchQuery,
+    setSearchQuery: s.setSearchQuery,
+    totalMatches: s.totalMatches
+  })));
 
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const searchRef = useRef(null);
 
@@ -118,17 +280,21 @@ const Header = ({ onHomeClick }) => {
       {mobileSearchOpen && (
         <MobileSearchOverlay onClose={() => setMobileSearchOpen(false)} />
       )}
+      
+      {filterModalOpen && (
+        <FilterModal onClose={() => setFilterModalOpen(false)} />
+      )}
 
       {/*
         3-column layout:
-          LEFT   — Logo column, w-60 to match the sidebar width exactly
+          LEFT   — Logo column, w-50 to match the sidebar width exactly
           CENTER — flex-1: sidebar toggle + search bar (search capped, not full-width)
           RIGHT  — actions: indexing / file count / theme
       */}
       <header className="topbar h-13 flex items-center gap-0">
 
-        {/* ── LEFT: Logo — same width as sidebar (w-60 = 240px) ───────────── */}
-        <div className="w-60 flex-shrink-0 flex items-center px-4">
+        {/* ── LEFT: Logo — same width as sidebar (w-50 = 200px) ───────────── */}
+        <div className="sm:w-60 flex-shrink-0 flex items-center px-2 sm:*:px-4">
           <button
             id="home-btn"
             onClick={handleHome}
@@ -145,19 +311,20 @@ const Header = ({ onHomeClick }) => {
         </div>
 
         {/* ── CENTER: flex-1 — sidebar toggle + search (not stretched to edges) ── */}
-        <div className="flex flex-1 items-center gap-2 min-w-0 px-0 sm:px-5">
+        <div className="flex flex-1 items-center gap-2 min-w-0 px-0 sm:px-13">
 
           {/* Sidebar toggle */}
           {scanStatus !== 'idle' && (
-            <button
-              id="sidebar-toggle"
-              onClick={toggleSidebar}
-              className="btn-icon border border-surface-800 flex-shrink-0"
-              aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-              title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            >
-              {sidebarOpen ? <PanelLeft size={16} /> : <Menu size={16} />}
-            </button>
+            <Tooltip content={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}>
+              <button
+                id="sidebar-toggle"
+                onClick={toggleSidebar}
+                className="btn-icon border border-surface-800 flex-shrink-0"
+                aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+              >
+                {sidebarOpen ? <PanelLeft size={16} /> : <Menu size={16} />}
+              </button>
+            </Tooltip>
           )}
 
           {/* Desktop search — capped width, not edge-to-edge */}
@@ -200,7 +367,7 @@ const Header = ({ onHomeClick }) => {
         </div>
 
         {/* ── RIGHT: Actions ───────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 px-4">
+        <div className="flex items-center gap-1 flex-shrink-0 px-4">
 
           {/* Mobile search icon */}
           {scanStatus !== 'idle' && (
@@ -223,23 +390,28 @@ const Header = ({ onHomeClick }) => {
           )}
 
           {scanStatus !== 'idle' && (
-            <div className="hidden md:block text-xs text-surface-600 px-1">
-              <span className="text-surface-400 font-medium tabular-nums">
-                {(scanStatus === 'scanning' ? indexedCount : totalFiles).toLocaleString()}
-              </span> files
-            </div>
+            <Tooltip content="Filter file types">
+              <button
+                onClick={() => setFilterModalOpen(true)}
+                className="btn-icon border border-surface-800 text-accent-400 hover:bg-accent-500/10 hover:border-accent-500/30"
+                aria-label="Filter file types"
+              >
+                <SlidersHorizontal size={15} />
+              </button>
+            </Tooltip>
           )}
 
           {/* Theme cycle button */}
-          <button
-            id="theme-toggle"
-            onClick={cycleTheme}
-            className="btn-icon border border-surface-800"
-            aria-label={`Theme: ${THEME_LABELS[themePreference]}. Click to switch.`}
-            title={`Theme: ${THEME_LABELS[themePreference]}`}
-          >
-            {THEME_ICONS[themePreference]}
-          </button>
+          <Tooltip content={`Theme: ${THEME_LABELS[themePreference]}`}>
+            <button
+              id="theme-toggle"
+              onClick={cycleTheme}
+              className="btn-icon border border-surface-800"
+              aria-label={`Theme: ${THEME_LABELS[themePreference]}. Click to switch.`}
+            >
+              {THEME_ICONS[themePreference]}
+            </button>
+          </Tooltip>
         </div>
       </header>
     </>

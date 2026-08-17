@@ -10,10 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Exhaustive Metadata & EXIF Extraction**: Integrated `exiftool-vendored` in the backend to perform highly optimized, instant background reads of all metadata tags (EXIF, XMP, GPS, IPTC, ICC, etc.) across images, videos, audio, and PDF files.
 - **Metadata Viewer UI**: Added an interactive "File Info" panel to the LightBox viewer that dynamically lists all extensive metadata extracted from the file.
 
+### Changed
+- **Unified Tooltip System**: Replaced native OS tooltips with a custom, highly responsive Radix UI tooltip system across the entire application for a more premium, consistent design.
+- **Sidebar UX Overhaul**: Redesigned the folder tree to use horizontal scrolling instead of text truncation, ensuring deeply nested folders remain fully readable.
+- **Compact UI Statistics**: Refactored global and sidebar statistics to use highly dense icon-based layouts rather than verbose text strings.
+- **Decluttered Navigation**: Removed redundant total file counts from the top header navigation.
+- **Number Formatting**: Applied consistent comma-separated number formatting to all tree-level folder and file counters.
+
 ### Fixed
+- Fixed a major race condition in the polling mechanism where overlapping status requests during heavy indexing could permanently freeze the UI in a "scanning" state.
+- Fixed an infinite scrolling architectural bug in the Masonry layout where `react-masonry-css` column distribution caused premature data fetching. Replaced mapped item observers with a unified sentinel component for accurate intersection tracking.
+- Fixed a JSX parsing syntax error that crashed the build after migrating `MediaCard.jsx` to the new custom tooltip component.
+- Removed unwanted tooltip hover states from the primary MediaGrid thumbnails.
 - Fixed severe scroll jumping and layout reflow in the Masonry view when loading new images by migrating from CSS `column-count` to a JavaScript-driven column distributor (`react-masonry-css`).
 - Fixed LightBox metadata scroll locking issues, ensuring mouse wheel actions exclusively scroll the active metadata pane rather than zooming the background image.
 - Visually aligned the LightBox info header by persisting a hidden close button element to preserve `justify-between` spacing.
+- Fixed an erratic behavior where LightBox zooming and panning UI controls intermittently failed. Refactored the `setZoom` updater to be pure, preventing React's state batching from discarding simultaneous pan reset coordinates.
+- Fixed an issue where the plus, minus, and reset zoom buttons in the LightBox were unresponsive while zoomed in. Applied click propagation stoppers to prevent the image's drag-pan pointer capture from intercepting control clicks.
+- Massively improved the responsiveness of opening and closing the LightBox by decoupling `MediaCard` and `TreeNode` components from global store re-renders via `React.memo` and atomic Zustand selectors. Eliminated heavy CSS `backdrop-blur` from the LightBox overlay to reduce GPU strain over large masonry grids.
 
 ## [1.1.4] - 2026-08-13
 ### Fixed

@@ -4,9 +4,14 @@ import Home from './pages/Home';
 import Gallery from './pages/Gallery';
 import Toast from './components/Toast';
 import useGalleryStore from './store/galleryStore';
+import { useShallow } from 'zustand/react/shallow';
+import { TooltipProvider } from './components/ui/Tooltip';
 
 function App() {
-  const { scanStatus, themePreference } = useGalleryStore();
+  const { scanStatus, themePreference } = useGalleryStore(useShallow(s => ({
+    scanStatus: s.scanStatus,
+    themePreference: s.themePreference
+  })));
   const [view, setView] = useState('home'); // 'home' | 'gallery'
 
   const handleScanComplete = () => setView('gallery');
@@ -29,18 +34,20 @@ function App() {
   const isGalleryVisible = view === 'gallery' && scanStatus !== 'idle';
 
   return (
-    <div className={`flex flex-col bg-surface-950 ${isGalleryVisible ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      <Header onHomeClick={handleHome} />
+    <TooltipProvider delayDuration={200}>
+      <div className={`flex flex-col bg-surface-950 ${isGalleryVisible ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+        <Header onHomeClick={handleHome} />
 
-      {!isGalleryVisible ? (
-        <Home onScanComplete={handleScanComplete} />
-      ) : (
-        <Gallery />
-      )}
+        {!isGalleryVisible ? (
+          <Home onScanComplete={handleScanComplete} />
+        ) : (
+          <Gallery />
+        )}
 
-      {/* Global toast layer */}
-      <Toast />
-    </div>
+        {/* Global toast layer */}
+        <Toast />
+      </div>
+    </TooltipProvider>
   );
 }
 
