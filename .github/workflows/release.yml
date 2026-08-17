@@ -3,13 +3,13 @@ name: Desktop Release Build
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags (e.g., v1.0.0)
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ${{ matrix.os }}
     
     strategy:
@@ -40,19 +40,55 @@ jobs:
       - name: Build Electron App
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Windows Code Signing (only used by --win builds)
           WIN_CSC_LINK: ${{ secrets.CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Disable macOS/Linux auto-discovery of signing certificates
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run build && npx electron-builder ${{ matrix.build_args }} --publish never
-        
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          generate_release_notes: true
-          files: |
+          name: release-${{ matrix.os }}
+          path: |
             dist-desktop/*.exe
             dist-desktop/*.dmg
             dist-desktop/*.AppImage
-            dist-desktop/*.blockmap
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Extract the section for this version from CHANGELOG.md
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+          # Write to file to preserve multiline
+          echo "$NOTES" > release_notes.md
+          echo "Generated release notes for v$VERSION"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: find artifacts -type f | head -20 || ls -R artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Gallery v${{ steps.changelog.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage

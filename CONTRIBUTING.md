@@ -2,38 +2,20 @@
 
 First off, thank you for considering contributing to Gallery! It's people like you that make Gallery such a great tool.
 
-## Where do I go from here?
+## Comprehensive Developer Guide
 
-If you've noticed a bug or have a feature request, make sure to check our [Issues](../../issues) to see if someone else in the community has already created a ticket. If not, go ahead and make one!
+We have consolidated all information regarding our **Architecture**, **Folder Structure**, **Coding Style**, and **Detailed Contribution Steps** into a single, comprehensive guide.
 
-## Fork & create a branch
+Please read our full [Developer & Contributor Guide](docs/DEVELOPMENT.md) before submitting a Pull Request.
 
-If this is something you think you can fix, then fork Gallery and create a branch with a descriptive name.
+## Quick Start
 
-A good branch name would be (where issue #325 is the ticket you're working on):
+1. **Fork & create a branch**: Fork the repository and create a branch with a descriptive name (e.g., `git checkout -b feature/amazing-feature`).
+2. **Install dependencies**: Run `npm run install:all` at the root.
+3. **Start the app**: Run `npm run dev` to start the development servers.
+4. **Follow conventions**: Ensure you follow our React/Tailwind styling guidelines and keep your commits clean.
+5. **Open a PR**: Push to your fork and submit a Pull Request against the `master` branch.
 
-```sh
-git checkout -b 325-add-portrait-mode
-```
+If you find a bug or have a feature request, please check our [Issues](../../issues) first to see if it's already being tracked.
 
-## Get the test suite running
-
-Make sure you're using Node.js version 22 or higher.
-
-```sh
-# Install dependencies for both server and client
-npm run install:all
-
-# Run the development environment
-npm run dev
-```
-
-## Implement your fix or feature
-
-At this point, you're ready to make your changes! Feel free to ask for help if you get stuck.
-
-## Make a Pull Request
-
-At this point, you should switch back to your master branch and make sure it's up to date with Gallery's master branch.
-
-Then, open a pull request, and we will review it!
+Thank you for contributing!

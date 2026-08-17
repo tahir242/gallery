@@ -9,11 +9,11 @@
 [![Node.js](https://img.shields.io/badge/Node.js-22.5+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-B73BFE?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![CI/CD](https://github.com/yourusername/gallery/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/gallery/actions)
+[![CI/CD](https://github.com/tahir242/gallery/actions/workflows/ci.yml/badge.svg)](https://github.com/tahir242/gallery/actions)
 
 An intelligent, portable media desktop application that incrementally indexes local and network directories. Bring your photos and videos to life with an attractive, mobile-first design and powerful native desktop capabilities.
 
-[Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [Developer Guide](docs/DEVELOPMENT.md) • [API Reference](#books-api-reference) • [Contributing](#handshake-contributing)
+[User Manual](docs/USER_MANUAL.md) • [Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [Developer Guide](docs/DEVELOPMENT.md) • [API Reference](#books-api-reference) • [Contributing](#handshake-contributing)
 
 </div>
 
