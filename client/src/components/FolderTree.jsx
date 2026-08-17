@@ -142,9 +142,25 @@ const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCoun
   );
 };
 
+import { useShallow } from 'zustand/react/shallow';
+
 /* ─── FolderTree ────────────────────────────────────────────────────────────── */
 const FolderTree = () => {
-  const { scanStatus, scanCompletedAt, selectedFolder, setSelectedFolder, sidebarOpen, toggleSidebar, currentPath, indexedCount, totalFiles, showFavorites, setShowFavorites, totalFavoritesCount, directoriesDiscovered } = useGalleryStore();
+  const { scanStatus, scanCompletedAt, selectedFolder, setSelectedFolder, sidebarOpen, toggleSidebar, currentPath, indexedCount, totalFiles, showFavorites, setShowFavorites, totalFavoritesCount, directoriesDiscovered } = useGalleryStore(useShallow(s => ({
+    scanStatus: s.scanStatus,
+    scanCompletedAt: s.scanCompletedAt,
+    selectedFolder: s.selectedFolder,
+    setSelectedFolder: s.setSelectedFolder,
+    sidebarOpen: s.sidebarOpen,
+    toggleSidebar: s.toggleSidebar,
+    currentPath: s.currentPath,
+    indexedCount: s.indexedCount,
+    totalFiles: s.totalFiles,
+    showFavorites: s.showFavorites,
+    setShowFavorites: s.setShowFavorites,
+    totalFavoritesCount: s.totalFavoritesCount,
+    directoriesDiscovered: s.directoriesDiscovered
+  })));
   const { isAtLeastLaptop } = useBreakpoint();
   const [rootDirs, setRootDirs] = useState([]);
   const [loadingRoots, setLoadingRoots] = useState(false);

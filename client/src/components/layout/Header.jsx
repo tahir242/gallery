@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Images, Loader2, Menu, Moon, Monitor, PanelLeft, Sun, Search, X, SlidersHorizontal, Image as ImageIcon, Video, FileText, Music, ChevronDown, ChevronUp } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import useGalleryStore from '../../store/galleryStore';
 import { Tooltip } from '../ui/Tooltip';
 
@@ -21,7 +22,10 @@ const GROUPS = [
 
 /* ── Filter Modal ──────────────────────────────────────────────────────────── */
 const FilterModal = ({ onClose }) => {
-  const { selectedExtensions, updateExtensionsAction } = useGalleryStore();
+  const { selectedExtensions, updateExtensionsAction } = useGalleryStore(useShallow(s => ({
+    selectedExtensions: s.selectedExtensions,
+    updateExtensionsAction: s.updateExtensionsAction
+  })));
   
   const [selectedExts, setSelectedExts] = useState(() => new Set(selectedExtensions || []));
   const [selectedGroups, setSelectedGroups] = useState(() => {
@@ -166,7 +170,10 @@ const FilterModal = ({ onClose }) => {
 
 /* ── Mobile search overlay ─────────────────────────────────────────────────── */
 const MobileSearchOverlay = ({ onClose }) => {
-  const { searchQuery, setSearchQuery } = useGalleryStore();
+  const { searchQuery, setSearchQuery } = useGalleryStore(useShallow(s => ({
+    searchQuery: s.searchQuery,
+    setSearchQuery: s.setSearchQuery
+  })));
   const [local, setLocal] = useState(searchQuery);
   const inputRef = useRef(null);
 
@@ -212,16 +219,19 @@ const MobileSearchOverlay = ({ onClose }) => {
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 const Header = ({ onHomeClick }) => {
   const {
-    scanStatus,
-    toggleSidebar,
-    sidebarOpen,
-    resetScan,
-    themePreference,
-    setThemePreference,
-    searchQuery,
-    setSearchQuery,
-    totalMatches,
-  } = useGalleryStore();
+    scanStatus, toggleSidebar, sidebarOpen, resetScan,
+    themePreference, setThemePreference, searchQuery, setSearchQuery, totalMatches
+  } = useGalleryStore(useShallow(s => ({
+    scanStatus: s.scanStatus,
+    toggleSidebar: s.toggleSidebar,
+    sidebarOpen: s.sidebarOpen,
+    resetScan: s.resetScan,
+    themePreference: s.themePreference,
+    setThemePreference: s.setThemePreference,
+    searchQuery: s.searchQuery,
+    setSearchQuery: s.setSearchQuery,
+    totalMatches: s.totalMatches
+  })));
 
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);

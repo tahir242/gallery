@@ -68,6 +68,8 @@ const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
   </Tooltip>
 );
 
+import { useShallow } from 'zustand/react/shallow';
+
 /* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
 const breakpointColumnsObj = {
   default: 7,
@@ -80,22 +82,29 @@ const breakpointColumnsObj = {
 
 const MediaGrid = () => {
   const {
-    files,
-    viewMode, setViewMode,
-    searchQuery,
-    selectedFolder,
-    selectedFileType, setSelectedFileType,
-    availableFileTypes,
-    totalMatches,
-    hasMore,
-    isLoadingMore,
-    filesError,
-    loadFiles,
-    sortField,
-    sortOrder,
-    setSort,
-    scanStatus,
-  } = useGalleryStore();
+    files, viewMode, setViewMode, searchQuery, selectedFolder,
+    selectedFileType, setSelectedFileType, availableFileTypes,
+    totalMatches, hasMore, isLoadingMore, filesError, loadFiles,
+    sortField, sortOrder, setSort, scanStatus,
+  } = useGalleryStore(useShallow(s => ({
+    files: s.files,
+    viewMode: s.viewMode,
+    setViewMode: s.setViewMode,
+    searchQuery: s.searchQuery,
+    selectedFolder: s.selectedFolder,
+    selectedFileType: s.selectedFileType,
+    setSelectedFileType: s.setSelectedFileType,
+    availableFileTypes: s.availableFileTypes,
+    totalMatches: s.totalMatches,
+    hasMore: s.hasMore,
+    isLoadingMore: s.isLoadingMore,
+    filesError: s.filesError,
+    loadFiles: s.loadFiles,
+    sortField: s.sortField,
+    sortOrder: s.sortOrder,
+    setSort: s.setSort,
+    scanStatus: s.scanStatus
+  })));
 
   const observerRef = useRef();
 

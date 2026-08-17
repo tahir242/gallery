@@ -125,12 +125,22 @@ const MetadataPanel = ({ file, onClose }) => {
 };
 
 /* ─── LightBox ──────────────────────────────────────────────────────────────── */
+import { useShallow } from 'zustand/react/shallow';
+
 const LightBox = () => {
-  const {
-    selectedFile, setSelectedFile, files,
+  const { 
+    selectedFile, setSelectedFile, files, 
     toggleFavorite, favorites,
     metadataPanelOpen, toggleMetadataPanel,
-  } = useGalleryStore();
+  } = useGalleryStore(useShallow(s => ({
+    selectedFile: s.selectedFile,
+    setSelectedFile: s.setSelectedFile,
+    files: s.files,
+    toggleFavorite: s.toggleFavorite,
+    favorites: s.favorites,
+    metadataPanelOpen: s.metadataPanelOpen,
+    toggleMetadataPanel: s.toggleMetadataPanel
+  })));
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
