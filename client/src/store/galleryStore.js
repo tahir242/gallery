@@ -265,7 +265,46 @@ const useGalleryStore = create((set, get) => ({
     try {
       set({ selectedExtensions: extensions });
       await apiUpdateScanExtensions(scanId, extensions);
+      
+      // Start polling so we catch the new files being indexed
+      clearInterval(get()._pollInterval);
+      set({ scanStatus: 'scanning' });
       get().loadFiles(true);
+
+      const interval = setInterval(async () => {
+        if (get()._pollInterval !== interval) return;
+        try {
+          const statusRes = await getScanStatus(scanId);
+          if (get()._pollInterval !== interval) return;
+
+          set({
+            scanStatus: statusRes.status,
+            totalFiles: statusRes.files_discovered,
+            indexedCount: statusRes.files_indexed,
+            directoriesDiscovered: statusRes.directories_discovered,
+          });
+
+          if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
+             get().loadFiles(true);
+          }
+
+          if (statusRes.status === 'completed' || statusRes.status === 'error') {
+            clearInterval(get()._pollInterval);
+            set({ _pollInterval: null });
+            if (statusRes.status === 'error') {
+              set({ scanError: statusRes.error_message });
+            } else {
+              set({ scanCompletedAt: Date.now() });
+            }
+            get().loadFiles(true);
+            get().fetchFavoriteCount();
+          }
+        } catch (e) {
+          console.error("Polling error", e);
+        }
+      }, 1000);
+      
+      set({ _pollInterval: interval });
     } catch (e) {
       console.error('Failed to update extensions:', e);
     }

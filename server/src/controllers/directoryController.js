@@ -81,17 +81,19 @@ const listDirectories = async (req, res) => {
     
     // Format for FolderTree node structure
     const formatted = await Promise.all(dirs.map(async (d) => {
-      // Use boundary conditions instead of LIKE/GLOB for O(log N) index SEARCH performance
-      const upperBound = d.path + String.fromCharCode(65535);
+      // Use boundary conditions but restrict to exact matches OR strict descendants
+      const sep = d.path.includes('\\') ? '\\' : '/';
+      const descendantPrefix = d.path + sep;
+      const upperBound = descendantPrefix + String.fromCharCode(65535);
       
       const fileCount = await db.get(
-        `SELECT COUNT(*) as c FROM media WHERE directory_path >= ? AND directory_path < ?`, 
-        [d.path, upperBound]
+        `SELECT COUNT(*) as c FROM media WHERE directory_path = ? OR (directory_path >= ? AND directory_path < ?)`, 
+        [d.path, descendantPrefix, upperBound]
       ).then(r => r.c);
       
       const subdirCount = await db.get(
-        `SELECT COUNT(*) as c FROM directories WHERE parent_path >= ? AND parent_path < ?`, 
-        [d.path, upperBound]
+        `SELECT COUNT(*) as c FROM directories WHERE parent_path = ? OR (parent_path >= ? AND parent_path < ?)`, 
+        [d.path, descendantPrefix, upperBound]
       ).then(r => r.c);
 
       return {
@@ -178,9 +180,10 @@ const deleteHistory = async (req, res) => {
     const db = await getDb();
     await db.run('BEGIN TRANSACTION');
     try {
-      const rootLike = rootPath + '%';
+      const sep = rootPath.includes('\\') ? '\\' : '/';
+      const rootLike = rootPath + sep + '%';
       await db.run(`DELETE FROM media WHERE path LIKE ?`, [rootLike]);
-      await db.run(`DELETE FROM directories WHERE path LIKE ?`, [rootLike]);
+      await db.run(`DELETE FROM directories WHERE path = ? OR path LIKE ?`, [rootPath, rootLike]);
       await db.run(`DELETE FROM scans WHERE path = ?`, [rootPath]);
       await db.run('COMMIT');
       res.json({ success: true });
@@ -208,7 +211,8 @@ const updateExtensions = async (req, res) => {
     await db.run('BEGIN TRANSACTION');
     try {
       // Delete media not in extensions
-      const rootLike = scan.path + '%';
+      const sep = scan.path.includes('\\') ? '\\' : '/';
+      const rootLike = scan.path + sep + '%';
       if (extensions.length > 0) {
         const extPlaceholders = extensions.map(() => '?').join(',');
         const deleteQuery = `DELETE FROM media WHERE path LIKE ? AND ext NOT IN (${extPlaceholders})`;
