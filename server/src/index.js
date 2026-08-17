@@ -4,6 +4,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
+const { exiftool } = require('exiftool-vendored');
+
 
 const directoryRoutes = require('./routes/directory');
 const mediaRoutes = require('./routes/media');
@@ -73,11 +75,15 @@ const stopServer = () => {
   if (serverInstance) {
     serverInstance.close();
   }
+  exiftool.end();
 };
 
 // If run directly (not imported as a module by Electron)
 if (require.main === module) {
   startServer();
 }
+
+process.on('SIGTERM', stopServer);
+process.on('SIGINT', stopServer);
 
 module.exports = { app, startServer, stopServer };

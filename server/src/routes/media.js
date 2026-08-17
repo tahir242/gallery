@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { serveMedia, getMediaInfo, getMediaList, getMediaTypes, toggleFavorite, getFavoriteCount } = require('../controllers/mediaController');
+const { serveMedia, getMediaInfo, getMediaMetadata, getMediaList, getMediaTypes, toggleFavorite, getFavoriteCount } = require('../controllers/mediaController');
 
 router.get('/serve', serveMedia);
+router.get('/metadata', getMediaMetadata);
 router.get('/info', getMediaInfo);
 router.get('/list', getMediaList);
 router.get('/types', getMediaTypes);
