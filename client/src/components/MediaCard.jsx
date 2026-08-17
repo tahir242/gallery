@@ -1,8 +1,7 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback } from 'react';
 import { getMediaUrl } from '../services/api';
 import useGalleryStore from '../store/galleryStore';
 import { Film, Music, Play, FileText, Heart } from 'lucide-react';
-import { Tooltip } from './ui/Tooltip';
 import PdfThumbnail from './PdfThumbnail';
 import VideoThumbnail from './VideoThumbnail';
 
@@ -60,13 +59,12 @@ const FavBtn = ({ isFav, onFav }) => (
 );
 
 /* ── MasonryCard — natural aspect ratio, no card border ────────────────────── */
-export const MasonryCard = memo(({ file }) => {
-  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
-  const toggleFavorite = useGalleryStore(s => s.toggleFavorite);
-  const isFav = useGalleryStore(s => s.favorites.has(file.path));
+export const MasonryCard = ({ file }) => {
+  const { setSelectedFile, toggleFavorite, favorites } = useGalleryStore();
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const mediaUrl = getMediaUrl(file.path);
+  const isFav = favorites.has(file.path);
 
   const handleClick = useCallback(() => setSelectedFile(file), [file, setSelectedFile]);
   const handleFav = useCallback((e) => {
@@ -86,6 +84,7 @@ export const MasonryCard = memo(({ file }) => {
       onClick={handleClick}
       onKeyDown={onCardKey(handleClick)}
       className="media-tile group w-full text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
+      title={file.name}
       aria-label={`Open ${file.name}`}
     >
       {isImage ? (
@@ -135,16 +134,15 @@ export const MasonryCard = memo(({ file }) => {
       )}
     </div>
   );
-});
+};
 
 /* ── MediaCard — uniform grid variant (4:3 aspect ratio) ───────────────────── */
-const MediaCard = memo(({ file }) => {
-  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
-  const toggleFavorite = useGalleryStore(s => s.toggleFavorite);
-  const isFav = useGalleryStore(s => s.favorites.has(file.path));
+const MediaCard = ({ file }) => {
+  const { setSelectedFile, toggleFavorite, favorites } = useGalleryStore();
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const mediaUrl = getMediaUrl(file.path);
+  const isFav = favorites.has(file.path);
 
   const handleClick = useCallback(() => setSelectedFile(file), [file, setSelectedFile]);
   const handleFav = useCallback((e) => {
@@ -162,6 +160,7 @@ const MediaCard = memo(({ file }) => {
       onClick={handleClick}
       onKeyDown={onCardKey(handleClick)}
       className="grid-card group text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
+      title={file.name}
       aria-label={`Open ${file.name}`}
     >
       <div className="relative w-full h-full">
@@ -204,6 +203,6 @@ const MediaCard = memo(({ file }) => {
       </div>
     </div>
   );
-});
+};
 
 export default MediaCard;

@@ -19,14 +19,6 @@ const MEDIA_TYPES = {
 
   // Documents
   pdf: 'document',
-  doc: 'document',
-  docx: 'document',
-  xls: 'document',
-  xlsx: 'document',
-  ppt: 'document',
-  pptx: 'document',
-  txt: 'document',
-  csv: 'document',
 
   // Videos
   mp4: 'video',
@@ -90,14 +82,6 @@ const getMimeType = (ext) => {
     avif: 'image/avif',
     ico: 'image/x-icon',
     pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xls: 'application/vnd.ms-excel',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ppt: 'application/vnd.ms-powerpoint',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    txt: 'text/plain',
-    csv: 'text/csv',
     mp4: 'video/mp4',
     mkv: 'video/x-matroska',
     avi: 'video/x-msvideo',

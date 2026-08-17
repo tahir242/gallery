@@ -2,12 +2,11 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import {
   X, ChevronLeft, ChevronRight,
   Download, ZoomIn, ZoomOut,
-  Info, Heart, Copy, Check, FileText,
+  Info, Heart, Copy, Check,
   RotateCcw,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { getMediaUrl, getMediaMetadataApi } from '../services/api';
-import { Tooltip } from './ui/Tooltip';
 
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -31,16 +30,15 @@ const formatDate = (dateString) => {
 
 /* ─── Toolbar action button ─────────────────────────────────────────────────── */
 const ActionBtn = ({ id, onClick, icon: Icon, label, active = false, danger = false, className = '' }) => (
-  <Tooltip content={label}>
-    <button
-      id={id}
-      onClick={onClick}
-      className={`lightbox-action-btn ${active ? 'text-accent-400 bg-accent-500/15' : ''} ${danger && active ? 'text-red-400 bg-red-500/15' : ''} ${className}`}
-      aria-label={label}
-    >
-      <Icon size={16} />
-    </button>
-  </Tooltip>
+  <button
+    id={id}
+    onClick={onClick}
+    className={`lightbox-action-btn ${active ? 'text-accent-400 bg-accent-500/15' : ''} ${danger && active ? 'text-red-400 bg-red-500/15' : ''} ${className}`}
+    aria-label={label}
+    title={label}
+  >
+    <Icon size={16} />
+  </button>
 );
 
 /* ─── Metadata panel ────────────────────────────────────────────────────────── */
@@ -163,13 +161,6 @@ const LightBox = () => {
     return () => prev?.focus?.();
   }, [selectedFile]);
 
-  // Safely reset pan when zoom returns to 1 or below
-  useEffect(() => {
-    if (zoom <= 1 && (pan.x !== 0 || pan.y !== 0)) {
-      setPan({ x: 0, y: 0 });
-    }
-  }, [zoom, pan.x, pan.y]);
-
   const goNext = useCallback(() => {
     if (currentIndex < files.length - 1) setSelectedFile(files[currentIndex + 1]);
   }, [currentIndex, files, setSelectedFile]);
@@ -210,6 +201,7 @@ const LightBox = () => {
     e.preventDefault();
     setZoom((z) => {
       const n = e.deltaY < 0 ? Math.min(z + 0.2, 5) : Math.max(z - 0.2, 0.5);
+      if (n <= 1) setPan({ x: 0, y: 0 });
       return n;
     });
   }, [isImage]);
@@ -247,7 +239,7 @@ const LightBox = () => {
         case 'ArrowRight': goNext(); break;
         case 'ArrowLeft':  goPrev(); break;
         case '+': case '=': setZoom((z) => Math.min(z + 0.25, 5)); break;
-        case '-':           setZoom((z) => Math.max(z - 0.25, 0.5)); break;
+        case '-':           setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; }); break;
         case 'f': case 'F': if (selectedFile) toggleFavorite(selectedFile.path); break;
         case 'i': case 'I': toggleMetadataPanel(); break;
         case 'Tab': {
@@ -313,11 +305,9 @@ const LightBox = () => {
           <span className="text-white/40 text-xs tabular-nums">
             {currentIndex + 1} / {files.length}
           </span>
-          <Tooltip content={selectedFile.name}>
-            <span className="text-white/70 text-sm font-medium max-w-[200px] sm:max-w-sm truncate">
-              {selectedFile.name}
-            </span>
-          </Tooltip>
+          <span className="text-white/70 text-sm font-medium max-w-[200px] sm:max-w-sm truncate" title={selectedFile.name}>
+            {selectedFile.name}
+          </span>
         </div>
 
         {/* Right: action cluster */}
@@ -351,31 +341,29 @@ const LightBox = () => {
           />
 
           {/* Download */}
-          <Tooltip content="Download">
-            <a
-              id="lightbox-download"
-              href={mediaUrl}
-              download={selectedFile.name}
-              className="lightbox-action-btn"
-              aria-label="Download"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Download size={16} />
-            </a>
-          </Tooltip>
+          <a
+            id="lightbox-download"
+            href={mediaUrl}
+            download={selectedFile.name}
+            className="lightbox-action-btn"
+            aria-label="Download"
+            title="Download"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Download size={16} />
+          </a>
 
           {/* Close */}
-          <Tooltip content="Close (Esc)">
-            <button
-              id="lightbox-close"
-              ref={closeButtonRef}
-              onClick={close}
-              className="lightbox-action-btn ml-1 border border-white/10"
-              aria-label="Close (Esc)"
-            >
-              <X size={17} />
-            </button>
-          </Tooltip>
+          <button
+            id="lightbox-close"
+            ref={closeButtonRef}
+            onClick={close}
+            className="lightbox-action-btn ml-1 border border-white/10"
+            aria-label="Close (Esc)"
+            title="Close (Esc)"
+          >
+            <X size={17} />
+          </button>
         </div>
       </div>
 
@@ -392,7 +380,6 @@ const LightBox = () => {
             <button
               id="lightbox-prev"
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
-              onPointerDown={(e) => e.stopPropagation()}
               className="absolute left-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
                          bg-black/40 hover:bg-black/70 border border-white/10
                          text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
@@ -407,7 +394,6 @@ const LightBox = () => {
             <button
               id="lightbox-next"
               onClick={(e) => { e.stopPropagation(); goNext(); }}
-              onPointerDown={(e) => e.stopPropagation()}
               className="absolute right-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
                          bg-black/40 hover:bg-black/70 border border-white/10
                          text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
@@ -479,30 +465,6 @@ const LightBox = () => {
             />
           )}
 
-          {/* Generic Document */}
-          {selectedFile.type === 'document' && selectedFile.ext !== 'pdf' && (
-            <div
-              className="flex flex-col items-center gap-6 p-10 animate-zoom-in"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                <FileText size={48} className="text-white/40" />
-              </div>
-              <p className="text-white/60 text-sm font-medium max-w-xs text-center truncate">{selectedFile.name}</p>
-              <p className="text-white/40 text-xs text-center max-w-sm leading-relaxed">
-                Preview not available for this file type.
-              </p>
-              <a
-                href={mediaUrl}
-                download={selectedFile.name}
-                className="mt-4 px-6 py-2.5 bg-accent-500/20 text-accent-400 border border-accent-500/30 rounded-card hover:bg-accent-500/30 transition-colors text-sm font-medium flex items-center gap-2"
-              >
-                <Download size={16} />
-                Download File
-              </a>
-            </div>
-          )}
-
           {/* Error */}
           {mediaError && (
             <p role="alert" className="absolute top-16 left-1/2 -translate-x-1/2
@@ -519,48 +481,43 @@ const LightBox = () => {
                          bg-black/60 backdrop-blur-md border border-white/10 rounded-pill
                          px-2 py-1.5 shadow-overlay"
               onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
             >
-              <Tooltip content="Zoom out (-)">
-                <button
-                  onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
-                  className="lightbox-action-btn w-7 h-7"
-                  aria-label="Zoom out (-)"
-                >
-                  <ZoomOut size={13} />
-                </button>
-              </Tooltip>
+              <button
+                onClick={() => setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; })}
+                className="lightbox-action-btn w-7 h-7"
+                aria-label="Zoom out (-)"
+                title="Zoom out (-)"
+              >
+                <ZoomOut size={13} />
+              </button>
 
-              <Tooltip content="Reset zoom">
-                <button
-                  onClick={resetZoom}
-                  className="px-2 text-[11px] font-mono text-white/50 hover:text-white/80 transition-colors min-w-[3rem] text-center"
-                  aria-label="Reset zoom"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-              </Tooltip>
+              <button
+                onClick={resetZoom}
+                className="px-2 text-[11px] font-mono text-white/50 hover:text-white/80 transition-colors min-w-[3rem] text-center"
+                aria-label="Reset zoom"
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
 
-              <Tooltip content="Zoom in (+)">
-                <button
-                  onClick={() => setZoom((z) => Math.min(z + 0.25, 5))}
-                  className="lightbox-action-btn w-7 h-7"
-                  aria-label="Zoom in (+)"
-                >
-                  <ZoomIn size={13} />
-                </button>
-              </Tooltip>
+              <button
+                onClick={() => setZoom((z) => Math.min(z + 0.25, 5))}
+                className="lightbox-action-btn w-7 h-7"
+                aria-label="Zoom in (+)"
+                title="Zoom in (+)"
+              >
+                <ZoomIn size={13} />
+              </button>
 
               {zoom !== 1 && (
-                <Tooltip content="Reset zoom">
-                  <button
-                    onClick={resetZoom}
-                    className="lightbox-action-btn w-7 h-7 border-l border-white/10 ml-1 pl-1 rounded-none"
-                    aria-label="Reset zoom"
-                  >
-                    <RotateCcw size={12} />
-                  </button>
-                </Tooltip>
+                <button
+                  onClick={resetZoom}
+                  className="lightbox-action-btn w-7 h-7 border-l border-white/10 ml-1 pl-1 rounded-none"
+                  aria-label="Reset zoom"
+                  title="Reset zoom"
+                >
+                  <RotateCcw size={12} />
+                </button>
               )}
             </div>
           )}
