@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import {
   LayoutGrid, List, Image as ImageIcon, Loader2,
   Columns3, ChevronDown,
@@ -16,8 +16,8 @@ const formatSize = (bytes) => {
 };
 
 /* ─── List row ──────────────────────────────────────────────────────────────── */
-const ListRow = ({ file }) => {
-  const { setSelectedFile } = useGalleryStore();
+const ListRow = memo(({ file }) => {
+  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
   const TYPE_COLOR = {
     image:    'text-emerald-400',
     video:    'text-blue-400',
@@ -48,7 +48,7 @@ const ListRow = ({ file }) => {
       </span>
     </button>
   );
-};
+});
 
 /* ─── View mode button ──────────────────────────────────────────────────────── */
 const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { getMediaUrl } from '../services/api';
 import useGalleryStore from '../store/galleryStore';
 import { Film, Music, Play, FileText, Heart } from 'lucide-react';
@@ -60,12 +60,13 @@ const FavBtn = ({ isFav, onFav }) => (
 );
 
 /* ── MasonryCard — natural aspect ratio, no card border ────────────────────── */
-export const MasonryCard = ({ file }) => {
-  const { setSelectedFile, toggleFavorite, favorites } = useGalleryStore();
+export const MasonryCard = memo(({ file }) => {
+  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
+  const toggleFavorite = useGalleryStore(s => s.toggleFavorite);
+  const isFav = useGalleryStore(s => s.favorites.has(file.path));
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const mediaUrl = getMediaUrl(file.path);
-  const isFav = favorites.has(file.path);
 
   const handleClick = useCallback(() => setSelectedFile(file), [file, setSelectedFile]);
   const handleFav = useCallback((e) => {
@@ -134,15 +135,16 @@ export const MasonryCard = ({ file }) => {
       )}
     </div>
   );
-};
+});
 
 /* ── MediaCard — uniform grid variant (4:3 aspect ratio) ───────────────────── */
-const MediaCard = ({ file }) => {
-  const { setSelectedFile, toggleFavorite, favorites } = useGalleryStore();
+const MediaCard = memo(({ file }) => {
+  const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
+  const toggleFavorite = useGalleryStore(s => s.toggleFavorite);
+  const isFav = useGalleryStore(s => s.favorites.has(file.path));
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const mediaUrl = getMediaUrl(file.path);
-  const isFav = favorites.has(file.path);
 
   const handleClick = useCallback(() => setSelectedFile(file), [file, setSelectedFile]);
   const handleFav = useCallback((e) => {
@@ -202,6 +204,6 @@ const MediaCard = ({ file }) => {
       </div>
     </div>
   );
-};
+});
 
 export default MediaCard;
