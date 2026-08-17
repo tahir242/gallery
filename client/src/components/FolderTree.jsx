@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ChevronRight, Folder, FolderOpen, HardDrive, X, Files, Loader2, Heart, Search } from 'lucide-react';
+import { ChevronRight, Folder, FolderOpen, HardDrive, X, Files, Loader2, Heart, Search, FileText } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
+import { Tooltip } from './ui/Tooltip';
 import useBreakpoint from '../hooks/useBreakpoint';
 import { getDirectories, searchDirectories } from '../services/api';
 
 /* ─── Tree Node ─────────────────────────────────────────────────────────────── */
-const TreeNode = ({ path: nodePath, name, hasChildren, depth = 0, defaultExpanded = false }) => {
-  const { selectedFolder, setSelectedFolder, scanCompletedAt } = useGalleryStore();
+const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCount = 0, depth = 0, defaultExpanded = false }) => {
+  const { selectedFolder, setSelectedFolder, scanCompletedAt, directoriesDiscovered } = useGalleryStore();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [children, setChildren] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -14,15 +15,15 @@ const TreeNode = ({ path: nodePath, name, hasChildren, depth = 0, defaultExpande
   const isSelected = selectedFolder === nodePath;
   const isRoot = depth === 0;
 
-  const fetchChildren = useCallback(async () => {
-    setLoading(true);
+  const fetchChildren = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const dirs = await getDirectories(nodePath);
       setChildren(dirs);
     } catch (e) {
       console.error("Failed to load subdirectories", e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [nodePath]);
 
@@ -51,18 +52,18 @@ const TreeNode = ({ path: nodePath, name, hasChildren, depth = 0, defaultExpande
 
   useEffect(() => {
     if (expanded && hasChildren) {
-      fetchChildren();
+      fetchChildren(children !== null);
     }
-  }, [scanCompletedAt, expanded, hasChildren, fetchChildren]);
+  }, [scanCompletedAt, directoriesDiscovered, expanded, hasChildren, fetchChildren]);
 
   return (
-    <div className="select-none">
+    <div className="w-full">
       <button
         id={`folder-${nodePath.replace(/[^a-zA-Z0-9]/g, '-')}`}
         onClick={toggle}
         className={`
           w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm
-          transition-all duration-150 group text-left
+          transition-colors duration-150 group text-left outline-none focus-visible:ring-2 focus-visible:ring-accent-500
           ${isSelected
             ? 'bg-accent-500/15 text-accent-300'
             : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
@@ -70,36 +71,65 @@ const TreeNode = ({ path: nodePath, name, hasChildren, depth = 0, defaultExpande
         `}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
       >
-        {hasChildren ? (
-          <ChevronRight
-            size={13}
-            className={`flex-shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
-          />
-        ) : (
-          <span className="w-3 flex-shrink-0" />
-        )}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {hasChildren ? (
+            <ChevronRight
+              size={13}
+              className={`flex-shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+            />
+          ) : (
+            <span className="w-3 flex-shrink-0" />
+          )}
 
-        {isRoot ? (
-          <HardDrive size={14} className="flex-shrink-0" />
-        ) : expanded && hasChildren ? (
-          <FolderOpen size={14} className="flex-shrink-0" />
-        ) : (
-          <Folder size={14} className="flex-shrink-0" />
-        )}
+          {isRoot ? (
+            <HardDrive size={14} className="flex-shrink-0 text-accent-400/80 group-hover:text-accent-400 transition-colors" />
+          ) : expanded && hasChildren ? (
+            <FolderOpen size={14} className="flex-shrink-0 text-accent-400/80 group-hover:text-accent-400 transition-colors" />
+          ) : (
+            <Folder size={14} className="flex-shrink-0 text-accent-400/80 group-hover:text-accent-400 transition-colors" />
+          )}
+        </div>
 
-        <span className="truncate flex-1 font-medium text-xs">{name}</span>
+        <span className="whitespace-nowrap font-medium text-xs">{name}</span>
         
-        {loading && <Loader2 size={12} className="animate-spin text-surface-500" />}
+        {!isRoot && (
+          <div className="flex items-center gap-2 ml-auto pl-3 opacity-40 group-hover:opacity-100 transition-opacity">
+            {subdirCount > 0 && (
+              <Tooltip content={`${subdirCount.toLocaleString()} subfolders`}>
+                <div className="flex items-center gap-1 text-surface-500">
+                  <Folder size={10} />
+                  <span className="text-[10px] tabular-nums font-medium">{subdirCount.toLocaleString()}</span>
+                </div>
+              </Tooltip>
+            )}
+            {fileCount > 0 && (
+              <Tooltip content={`${fileCount.toLocaleString()} files`}>
+                <div className="flex items-center gap-1 text-surface-500">
+                  <FileText size={10} />
+                  <span className="text-[10px] tabular-nums font-medium">{fileCount.toLocaleString()}</span>
+                </div>
+              </Tooltip>
+            )}
+          </div>
+        )}
+        
+        {loading && (
+          <div className="ml-2 flex-shrink-0">
+            <Loader2 size={12} className="animate-spin text-surface-500" />
+          </div>
+        )}
       </button>
 
       {hasChildren && expanded && children && (
-        <div>
+        <div className="w-full">
           {children.map((child) => (
             <TreeNode
               key={child.path}
               path={child.path}
               name={child.name}
               hasChildren={child.hasChildren}
+              fileCount={child.fileCount}
+              subdirCount={child.subdirCount}
               depth={depth + 1}
             />
           ))}
@@ -111,7 +141,7 @@ const TreeNode = ({ path: nodePath, name, hasChildren, depth = 0, defaultExpande
 
 /* ─── FolderTree ────────────────────────────────────────────────────────────── */
 const FolderTree = () => {
-  const { scanStatus, scanCompletedAt, selectedFolder, setSelectedFolder, sidebarOpen, toggleSidebar, currentPath, indexedCount, totalFiles, showFavorites, setShowFavorites, totalFavoritesCount } = useGalleryStore();
+  const { scanStatus, scanCompletedAt, selectedFolder, setSelectedFolder, sidebarOpen, toggleSidebar, currentPath, indexedCount, totalFiles, showFavorites, setShowFavorites, totalFavoritesCount, directoriesDiscovered } = useGalleryStore();
   const { isAtLeastLaptop } = useBreakpoint();
   const [rootDirs, setRootDirs] = useState([]);
   const [loadingRoots, setLoadingRoots] = useState(false);
@@ -151,7 +181,8 @@ const FolderTree = () => {
 
     let active = true;
     const fetchRoots = async () => {
-      setLoadingRoots(true);
+      // Don't show loading spinner if we already have roots
+      setLoadingRoots((prev) => prev || rootDirs.length === 0);
       try {
         const dirs = await getDirectories(currentPath);
         if (active) setRootDirs(dirs);
@@ -163,7 +194,7 @@ const FolderTree = () => {
     };
     fetchRoots();
     return () => { active = false; };
-  }, [currentPath, scanCompletedAt]);
+  }, [currentPath, scanCompletedAt, directoriesDiscovered]);
 
   if (scanStatus === 'idle') return null;
 
@@ -171,7 +202,7 @@ const FolderTree = () => {
     <aside className={`
       flex-shrink-0 border-r border-surface-800 bg-surface-950 flex flex-col h-full
       transition-all duration-300 ease-out
-      ${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full overflow-hidden border-r-0'}
+      ${sidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full overflow-hidden border-r-0'}
       ${!isAtLeastLaptop ? 'fixed inset-y-0 left-0 z-40' : 'relative'}
     `}>
       <div className="p-3 pb-0">
@@ -204,9 +235,20 @@ const FolderTree = () => {
           >
             <Files size={13} className="flex-shrink-0" />
             <span>All Files</span>
-            <span className="ml-auto text-[11px] tabular-nums text-surface-600">
-              {((scanStatus === 'scanning' ? indexedCount : totalFiles) || 0).toLocaleString()}
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Tooltip content="Total Folders">
+                <div className="flex items-center gap-1 text-surface-500">
+                  <Folder size={10} />
+                  <span className="text-[10px] tabular-nums font-medium">{directoriesDiscovered.toLocaleString()}</span>
+                </div>
+              </Tooltip>
+              <Tooltip content="Total Files">
+                <div className="flex items-center gap-1 text-surface-500">
+                  <FileText size={10} />
+                  <span className="text-[10px] tabular-nums font-medium">{((scanStatus === 'scanning' ? indexedCount : totalFiles) || 0).toLocaleString()}</span>
+                </div>
+              </Tooltip>
+            </div>
           </button>
 
           <button
@@ -245,57 +287,71 @@ const FolderTree = () => {
 
         <div className="h-px bg-surface-800/50 mb-3 mx-2" />
         
-        <p className="text-xs text-surface-600 font-medium uppercase tracking-wider px-2 mb-2">
-          Folders
-        </p>
+        <div className="flex items-center justify-between px-2 mb-2">
+          <p className="text-xs text-surface-600 font-medium uppercase tracking-wider">
+            Folders
+          </p>
+          {scanStatus === 'scanning' && directoriesDiscovered > 0 && (
+            <Tooltip content="Indexed Folders">
+              <div className="flex items-center gap-1 text-surface-500">
+                <Folder size={10} />
+                <span className="text-[10px] tabular-nums font-medium">
+                  {directoriesDiscovered.toLocaleString()}
+                </span>
+              </div>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
-        {searchQuery.trim() ? (
-          <div className="space-y-0.5">
-            {searching ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 size={16} className="animate-spin text-surface-600" />
-              </div>
-            ) : searchResults.length > 0 ? (
-              searchResults.map(dir => (
-                <button
-                  key={dir.path}
-                  onClick={() => setSelectedFolder(dir.path)}
-                  className={`
-                    w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm
-                    transition-colors duration-150 text-left
-                    ${selectedFolder === dir.path
-                      ? 'bg-accent-500/15 text-accent-300'
-                      : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
-                    }
-                  `}
-                >
-                  <Folder size={14} className="flex-shrink-0" />
-                  <span className="truncate flex-1 font-medium text-xs">{dir.name}</span>
-                </button>
-              ))
-            ) : (
-              <p className="text-xs text-surface-600 px-2 mt-2">No matching folders</p>
-            )}
-          </div>
-        ) : loadingRoots ? (
-          <div className="flex items-center justify-center p-4">
-            <Loader2 size={16} className="animate-spin text-surface-600" />
-          </div>
-        ) : rootDirs.length > 0 ? (
-          <TreeNode
-            path={currentPath}
-            name={currentPath.split(/[/\\]/).filter(Boolean).pop() || currentPath}
-            hasChildren={true}
-            depth={0}
-            defaultExpanded={true}
-          />
-        ) : (
-          <p className="text-xs text-surface-600 px-2 mt-2">
-            {scanStatus === 'scanning' ? 'Discovering folders...' : 'No subfolders found'}
-          </p>
-        )}
+      <div className="flex-1 overflow-auto px-2 pb-4">
+        <div className="min-w-max flex flex-col space-y-0.5 pr-2">
+          {searchQuery.trim() ? (
+            <div className="space-y-0.5">
+              {searching ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 size={16} className="animate-spin text-surface-600" />
+                </div>
+              ) : searchResults.length > 0 ? (
+                searchResults.map(dir => (
+                  <button
+                    key={dir.path}
+                    onClick={() => setSelectedFolder(dir.path)}
+                    className={`
+                      w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm
+                      transition-colors duration-150 text-left
+                      ${selectedFolder === dir.path
+                        ? 'bg-accent-500/15 text-accent-300'
+                        : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
+                      }
+                    `}
+                  >
+                    <Folder size={14} className="flex-shrink-0 text-accent-400/80" />
+                    <span className="whitespace-nowrap flex-1 font-medium text-xs">{dir.name}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-surface-600 px-2 mt-2">No matching folders</p>
+              )}
+            </div>
+          ) : loadingRoots ? (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 size={16} className="animate-spin text-surface-600" />
+            </div>
+          ) : rootDirs.length > 0 ? (
+            <TreeNode
+              path={currentPath}
+              name={currentPath.split(/[/\\]/).filter(Boolean).pop() || currentPath}
+              hasChildren={true}
+              depth={0}
+              defaultExpanded={true}
+            />
+          ) : (
+            <p className="text-xs text-surface-600 px-2 mt-2">
+              {scanStatus === 'scanning' ? 'Discovering folders...' : 'No subfolders found'}
+            </p>
+          )}
+        </div>
       </div>
     </aside>
   );

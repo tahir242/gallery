@@ -6,6 +6,7 @@ import {
 import useGalleryStore from '../store/galleryStore';
 import MediaCard, { MasonryCard } from './MediaCard';
 import Masonry from 'react-masonry-css';
+import { Tooltip } from './ui/Tooltip';
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
@@ -37,9 +38,11 @@ const ListRow = ({ file }) => {
       <span className="flex-1 text-[13px] text-surface-300 truncate group-hover:text-surface-100 transition-colors">
         {file.name}
       </span>
-      <span className="text-[11px] text-surface-700 hidden md:block truncate max-w-xs" title={file.directory}>
-        {file.directory}
-      </span>
+      <Tooltip content={file.directory}>
+        <span className="text-[11px] text-surface-700 hidden md:block truncate max-w-[200px] xl:max-w-xs">
+          {file.directory}
+        </span>
+      </Tooltip>
       <span className="text-[11px] text-surface-600 flex-shrink-0 w-16 text-right tabular-nums">
         {formatSize(file.size)}
       </span>
@@ -49,19 +52,20 @@ const ListRow = ({ file }) => {
 
 /* ─── View mode button ──────────────────────────────────────────────────────── */
 const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
-  <button
-    id={`view-${mode}`}
-    onClick={() => onClick(mode)}
-    className={`p-1.5 rounded-[5px] transition-colors duration-100 ${
-      current === mode
-        ? 'bg-accent-600 text-white'
-        : 'text-surface-600 hover:text-surface-300'
-    }`}
-    aria-label={label}
-    title={label}
-  >
-    <Icon size={14} />
-  </button>
+  <Tooltip content={label}>
+    <button
+      id={`view-${mode}`}
+      onClick={() => onClick(mode)}
+      className={`p-1.5 rounded-[5px] transition-colors duration-100 ${
+        current === mode
+          ? 'bg-accent-600 text-white'
+          : 'text-surface-600 hover:text-surface-300'
+      }`}
+      aria-label={label}
+    >
+      <Icon size={14} />
+    </button>
+  </Tooltip>
 );
 
 /* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
