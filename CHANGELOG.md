@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Metadata Viewer UI**: Added an interactive "File Info" panel to the LightBox viewer that dynamically lists all extensive metadata extracted from the file.
 
 ### Fixed
+- Fixed severe scroll jumping and layout reflow in the Masonry view when loading new images by migrating from CSS `column-count` to a JavaScript-driven column distributor (`react-masonry-css`).
 - Fixed LightBox metadata scroll locking issues, ensuring mouse wheel actions exclusively scroll the active metadata pane rather than zooming the background image.
 - Visually aligned the LightBox info header by persisting a hidden close button element to preserve `justify-between` spacing.
 

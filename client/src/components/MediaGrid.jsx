@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import MediaCard, { MasonryCard } from './MediaCard';
+import Masonry from 'react-masonry-css';
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
@@ -64,6 +65,15 @@ const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
 );
 
 /* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
+const breakpointColumnsObj = {
+  default: 7,
+  1920: 6,
+  1536: 5,
+  1280: 4,
+  1024: 3,
+  640: 2
+};
+
 const MediaGrid = () => {
   const {
     files,
@@ -219,7 +229,11 @@ const MediaGrid = () => {
 
           {/* ── Masonry layout ───────────────────────────────────────────────── */}
           {files.length > 0 && viewMode === 'masonry' && (
-            <div className="masonry-grid pb-8">
+            <Masonry
+              breakpointCols={breakpointColumnsObj}
+              className="masonry-grid pb-8"
+              columnClassName="masonry-grid_column"
+            >
               {files.map((file, index) => {
                 const isLast = index === files.length - 1;
                 return (
@@ -232,7 +246,7 @@ const MediaGrid = () => {
                   </div>
                 );
               })}
-            </div>
+            </Masonry>
           )}
 
           {/* ── Uniform grid layout ──────────────────────────────────────────── */}
