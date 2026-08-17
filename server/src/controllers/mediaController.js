@@ -3,6 +3,7 @@ const path = require('path');
 const { getMimeType } = require('../utils/mediaTypes');
 const { normalizePath } = require('../utils/scanner');
 const { getDb } = require('../db');
+const { exiftool } = require('exiftool-vendored');
 
 /**
  * GET /api/media/serve?path=<encoded_file_path>
@@ -91,6 +92,29 @@ const getMediaInfo = (req, res) => {
     });
   } catch (err) {
     return res.status(404).json({ error: 'File not found' });
+  }
+};
+
+/**
+ * GET /api/media/metadata?path=<encoded_file_path>
+ * Return exhaustive metadata about a media file (EXIF, GPS, XMP, etc.)
+ */
+const getMediaMetadata = async (req, res) => {
+  const filePath = req.query.path;
+
+  if (!filePath) {
+    return res.status(400).json({ error: 'File path is required' });
+  }
+
+  const decodedPath = decodeURIComponent(filePath);
+  const normalizedPath = normalizePath(decodedPath);
+
+  try {
+    const tags = await exiftool.read(normalizedPath);
+    return res.status(200).json(tags);
+  } catch (err) {
+    console.error('getMediaMetadata error:', err);
+    return res.status(500).json({ error: 'Failed to read metadata', details: err.message });
   }
 };
 
@@ -249,4 +273,4 @@ const getFavoriteCount = async (req, res) => {
   }
 };
 
-module.exports = { serveMedia, getMediaInfo, getMediaList, getMediaTypes, toggleFavorite, getFavoriteCount };
+module.exports = { serveMedia, getMediaInfo, getMediaMetadata, getMediaList, getMediaTypes, toggleFavorite, getFavoriteCount };

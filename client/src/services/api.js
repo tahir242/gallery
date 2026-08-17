@@ -37,3 +37,6 @@ export const toggleFavoriteApi = (path) =>
 
 export const getFavoriteCountApi = () =>
   api.get('/media/favorites/count').then(r => r.data.count);
+
+export const getMediaMetadataApi = (path) =>
+  api.get('/media/metadata', { params: { path } }).then(r => r.data);

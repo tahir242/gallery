@@ -6,7 +6,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
-import { getMediaUrl } from '../services/api';
+import { getMediaUrl, getMediaMetadataApi } from '../services/api';
+
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
@@ -42,6 +43,21 @@ const ActionBtn = ({ id, onClick, icon: Icon, label, active = false, danger = fa
 
 /* ─── Metadata panel ────────────────────────────────────────────────────────── */
 const MetadataPanel = ({ file, onClose }) => {
+  const [extendedData, setExtendedData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!file) return;
+    setLoading(true);
+    getMediaMetadataApi(file.path)
+      .then((data) => {
+        // Filter out highly verbose or raw binary tags if needed, but the prompt asks for exhaustive data
+        setExtendedData(data);
+      })
+      .catch((err) => console.error('Failed to load metadata:', err))
+      .finally(() => setLoading(false));
+  }, [file]);
+
   const rows = [
     { label: 'Name',      value: file.name },
     { label: 'Type',      value: file.ext?.toUpperCase() },
@@ -49,20 +65,30 @@ const MetadataPanel = ({ file, onClose }) => {
     { label: 'Path',      value: file.path,      mono: true, truncate: false },
     { label: 'Directory', value: file.directory, mono: true },
     { label: 'Modified',  value: formatDate(file.modifiedAt) },
-    { label: 'Width',     value: file.width  ? `${file.width}px`  : null },
-    { label: 'Height',    value: file.height ? `${file.height}px` : null },
+    { label: 'Width',     value: extendedData?.ImageWidth ? `${extendedData.ImageWidth}px` : (file.width ? `${file.width}px` : null) },
+    { label: 'Height',    value: extendedData?.ImageHeight ? `${extendedData.ImageHeight}px` : (file.height ? `${file.height}px` : null) },
   ].filter((r) => r.value);
 
+  // Group tags that are useful to display
+  const excludeKeys = ['Directory', 'FileAccessDate', 'FileModifyDate', 'FileName', 'FilePath', 'FileSize', 'MIMEType', 'SourceFile', 'errors'];
+  
+  const extendedRows = extendedData 
+    ? Object.entries(extendedData)
+        .filter(([k, v]) => !excludeKeys.includes(k) && typeof v !== 'object')
+        .map(([k, v]) => ({ label: k, value: String(v) }))
+    : [];
+
   return (
-    <div className="flex flex-col w-64 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">Info</span>
-        <button onClick={onClose} className="lightbox-action-btn" aria-label="Close info panel">
+    <div className="metadata-panel flex flex-col w-72 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 sticky top-0 bg-black/50 backdrop-blur-md z-10">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">File Info</span>
+        <button onClick={onClose} className="lightbox-action-btn invisible pointer-events-none" aria-label="Close info panel">
           <X size={14} />
         </button>
       </div>
 
       <div className="px-4 py-4 flex flex-col gap-4">
+        {/* Basic Info */}
         {rows.map(({ label, value, mono, truncate }) => (
           <div key={label}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">{label}</p>
@@ -71,6 +97,26 @@ const MetadataPanel = ({ file, onClose }) => {
             </p>
           </div>
         ))}
+
+        <div className="h-px w-full bg-white/10 my-2" />
+
+        {/* Extended EXIF / Metadata */}
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-1">Extended Metadata</p>
+        
+        {loading ? (
+          <p className="text-[12px] text-white/40 italic">Loading EXIF data...</p>
+        ) : extendedRows.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {extendedRows.map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-0.5">{label}</p>
+                <p className="text-[11px] text-white/70 leading-relaxed break-words">{value}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[12px] text-white/40 italic">No extended metadata available.</p>
+        )}
       </div>
     </div>
   );
@@ -150,6 +196,7 @@ const LightBox = () => {
   // MUST be above the early return — hooks cannot come after a conditional return.
   // We attach as { passive: false } via useEffect so e.preventDefault() is legal.
   const handleWheel = useCallback((e) => {
+    if (e.target.closest('.metadata-panel')) return;
     if (!isImage) return;
     e.preventDefault();
     setZoom((z) => {
