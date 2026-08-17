@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Exhaustive Metadata & EXIF Extraction**: Integrated `exiftool-vendored` in the backend to perform highly optimized, instant background reads of all metadata tags (EXIF, XMP, GPS, IPTC, ICC, etc.) across images, videos, audio, and PDF files.
 - **Metadata Viewer UI**: Added an interactive "File Info" panel to the LightBox viewer that dynamically lists all extensive metadata extracted from the file.
 
+### Changed
+- **Unified Tooltip System**: Replaced native OS tooltips with a custom, highly responsive Radix UI tooltip system across the entire application for a more premium, consistent design.
+- **Sidebar UX Overhaul**: Redesigned the folder tree to use horizontal scrolling instead of text truncation, ensuring deeply nested folders remain fully readable.
+- **Compact UI Statistics**: Refactored global and sidebar statistics to use highly dense icon-based layouts rather than verbose text strings.
+- **Decluttered Navigation**: Removed redundant total file counts from the top header navigation.
+- **Number Formatting**: Applied consistent comma-separated number formatting to all tree-level folder and file counters.
+
 ### Fixed
 - Fixed severe scroll jumping and layout reflow in the Masonry view when loading new images by migrating from CSS `column-count` to a JavaScript-driven column distributor (`react-masonry-css`).
 - Fixed LightBox metadata scroll locking issues, ensuring mouse wheel actions exclusively scroll the active metadata pane rather than zooming the background image.
