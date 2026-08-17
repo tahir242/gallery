@@ -277,14 +277,14 @@ const Header = ({ onHomeClick }) => {
 
       {/*
         3-column layout:
-          LEFT   — Logo column, w-60 to match the sidebar width exactly
+          LEFT   — Logo column, w-50 to match the sidebar width exactly
           CENTER — flex-1: sidebar toggle + search bar (search capped, not full-width)
           RIGHT  — actions: indexing / file count / theme
       */}
       <header className="topbar h-13 flex items-center gap-0">
 
-        {/* ── LEFT: Logo — same width as sidebar (w-60 = 240px) ───────────── */}
-        <div className="w-60 flex-shrink-0 flex items-center px-4">
+        {/* ── LEFT: Logo — same width as sidebar (w-50 = 200px) ───────────── */}
+        <div className="sm:w-60 flex-shrink-0 flex items-center px-2 sm:*:px-4">
           <button
             id="home-btn"
             onClick={handleHome}
@@ -301,7 +301,7 @@ const Header = ({ onHomeClick }) => {
         </div>
 
         {/* ── CENTER: flex-1 — sidebar toggle + search (not stretched to edges) ── */}
-        <div className="flex flex-1 items-center gap-2 min-w-0 px-0 sm:px-5">
+        <div className="flex flex-1 items-center gap-2 min-w-0 px-0 sm:px-13">
 
           {/* Sidebar toggle */}
           {scanStatus !== 'idle' && (
@@ -357,7 +357,7 @@ const Header = ({ onHomeClick }) => {
         </div>
 
         {/* ── RIGHT: Actions ───────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 px-4">
+        <div className="flex items-center gap-1 flex-shrink-0 px-4">
 
           {/* Mobile search icon */}
           {scanStatus !== 'idle' && (

@@ -78,63 +78,61 @@ export const MasonryCard = ({ file }) => {
   return (
     // div role="button" avoids the nested-button HTML violation
     // (FavBtn is a real <button> inside; two <button>s cannot nest)
-    <Tooltip content={file.name}>
-      <div
-        id={`media-card-${file.name.replace(/[^a-zA-Z0-9]/g, '-')}`}
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={onCardKey(handleClick)}
-        className="media-tile group w-full text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
-        aria-label={`Open ${file.name}`}
-      >
-        {isImage ? (
-          <div className="relative w-full">
-            {!imgLoaded && (
-              <div className="absolute inset-0 skeleton rounded-[8px]" style={{ minHeight: '80px' }} />
+    <div
+      id={`media-card-${file.name.replace(/[^a-zA-Z0-9]/g, '-')}`}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={onCardKey(handleClick)}
+      className="media-tile group w-full text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
+      aria-label={`Open ${file.name}`}
+    >
+      {isImage ? (
+        <div className="relative w-full">
+          {!imgLoaded && (
+            <div className="absolute inset-0 skeleton rounded-[8px]" style={{ minHeight: '80px' }} />
+          )}
+          <img
+            src={mediaUrl}
+            alt={file.name}
+            className={`tile-img rounded-[8px] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+            loading="lazy"
+            draggable={false}
+          />
+          <div className="tile-overlay rounded-[8px]" />
+          <div className="tile-overlay-top rounded-[8px]" />
+
+          {/* Fav button — real <button>, valid here since outer is a div */}
+          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <FavBtn isFav={isFav} onFav={handleFav} />
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <p className="text-white text-[11px] font-semibold truncate leading-tight drop-shadow">{file.name}</p>
+            {file.size > 0 && (
+              <p className="text-white/60 text-[10px] mt-0.5">{formatSize(file.size)}</p>
             )}
-            <img
-              src={mediaUrl}
-              alt={file.name}
-              className={`tile-img rounded-[8px] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgError(true)}
-              loading="lazy"
-              draggable={false}
-            />
-            <div className="tile-overlay rounded-[8px]" />
-            <div className="tile-overlay-top rounded-[8px]" />
-
-            {/* Fav button — real <button>, valid here since outer is a div */}
-            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <FavBtn isFav={isFav} onFav={handleFav} />
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-              <p className="text-white text-[11px] font-semibold truncate leading-tight drop-shadow">{file.name}</p>
-              {file.size > 0 && (
-                <p className="text-white/60 text-[10px] mt-0.5">{formatSize(file.size)}</p>
-              )}
-            </div>
           </div>
-        ) : (
-          <div className="relative rounded-[8px] overflow-hidden">
-            <TypePlaceholder file={file} />
-            <div className="tile-overlay rounded-[8px]" />
-            <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-              <p className="text-white text-[11px] font-semibold truncate">{file.name}</p>
-            </div>
-            <div className="absolute top-1.5 left-1.5">
-              <span className="badge-type uppercase">{file.type}</span>
-            </div>
-            
-            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <FavBtn isFav={isFav} onFav={handleFav} />
-            </div>
+        </div>
+      ) : (
+        <div className="relative rounded-[8px] overflow-hidden">
+          <TypePlaceholder file={file} />
+          <div className="tile-overlay rounded-[8px]" />
+          <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <p className="text-white text-[11px] font-semibold truncate">{file.name}</p>
           </div>
-        )}
-      </div>
-    </Tooltip>
+          <div className="absolute top-1.5 left-1.5">
+            <span className="badge-type uppercase">{file.type}</span>
+          </div>
+          
+          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <FavBtn isFav={isFav} onFav={handleFav} />
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -155,16 +153,15 @@ const MediaCard = ({ file }) => {
   const isImage = file.type === 'image' && !imgError;
 
   return (
-    <Tooltip content={file.name}>
-      <div
-        id={`media-card-${file.name.replace(/[^a-zA-Z0-9]/g, '-')}`}
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={onCardKey(handleClick)}
-        className="grid-card group text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
-        aria-label={`Open ${file.name}`}
-      >
+    <div
+      id={`media-card-${file.name.replace(/[^a-zA-Z0-9]/g, '-')}`}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={onCardKey(handleClick)}
+      className="grid-card group text-left focus-visible:ring-2 focus-visible:ring-accent-400 cursor-pointer"
+      aria-label={`Open ${file.name}`}
+    >
       <div className="relative w-full h-full">
         {isImage ? (
           <>
@@ -202,9 +199,8 @@ const MediaCard = ({ file }) => {
           <p className="text-white text-[11px] font-semibold truncate">{file.name}</p>
           {file.size > 0 && <p className="text-white/60 text-[10px] mt-0.5">{formatSize(file.size)}</p>}
         </div>
-        </div>
       </div>
-    </Tooltip>
+    </div>
   );
 };
 
