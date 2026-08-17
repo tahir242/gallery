@@ -227,26 +227,47 @@
 
   /* ── Masonry grid ─────────────────────────────────────────────────────────── */
   .masonry-grid {
-    columns: 2;
-    column-gap: 8px;
-    orphans: 1;
-    widows: 1;
+    display: flex;
+    margin-left: -8px;
+    width: auto;
+  }
+  .masonry-grid_column {
+    padding-left: 8px;
+    background-clip: padding-box;
+  }
+  .masonry-grid_column > .masonry-item {
+    margin-bottom: 8px;
   }
 
-  @media (min-width: 640px)  { .masonry-grid { columns: 3; column-gap: 10px; } }
-  @media (min-width: 1024px) { .masonry-grid { columns: 4; column-gap: 12px; } }
-  @media (min-width: 1280px) { .masonry-grid { columns: 5; column-gap: 12px; } }
-  @media (min-width: 1536px) { .masonry-grid { columns: 6; column-gap: 14px; } }
-  @media (min-width: 1920px) { .masonry-grid { columns: 7; column-gap: 14px; } }
+  @media (min-width: 640px)  { 
+    .masonry-grid { margin-left: -10px; }
+    .masonry-grid_column { padding-left: 10px; }
+    .masonry-grid_column > .masonry-item { margin-bottom: 10px; }
+  }
+  @media (min-width: 1024px) { 
+    .masonry-grid { margin-left: -12px; }
+    .masonry-grid_column { padding-left: 12px; }
+    .masonry-grid_column > .masonry-item { margin-bottom: 12px; }
+  }
+  @media (min-width: 1280px) { 
+    .masonry-grid { margin-left: -12px; }
+    .masonry-grid_column { padding-left: 12px; }
+    .masonry-grid_column > .masonry-item { margin-bottom: 12px; }
+  }
+  @media (min-width: 1536px) { 
+    .masonry-grid { margin-left: -14px; }
+    .masonry-grid_column { padding-left: 14px; }
+    .masonry-grid_column > .masonry-item { margin-bottom: 14px; }
+  }
+  @media (min-width: 1920px) { 
+    .masonry-grid { margin-left: -14px; }
+    .masonry-grid_column { padding-left: 14px; }
+    .masonry-grid_column > .masonry-item { margin-bottom: 14px; }
+  }
 
   .masonry-item {
-    break-inside: avoid;
-    margin-bottom: 8px;
     display: block;
   }
-  @media (min-width: 640px)  { .masonry-item { margin-bottom: 10px; } }
-  @media (min-width: 1024px) { .masonry-item { margin-bottom: 12px; } }
-  @media (min-width: 1536px) { .masonry-item { margin-bottom: 14px; } }
 
   /* ── Media tile (masonry card — no border container) ─────────────────────── */
   .media-tile {
