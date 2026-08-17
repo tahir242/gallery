@@ -7,7 +7,10 @@ import { getDirectories, searchDirectories } from '../services/api';
 
 /* ─── Tree Node ─────────────────────────────────────────────────────────────── */
 const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCount = 0, depth = 0, defaultExpanded = false }) => {
-  const { selectedFolder, setSelectedFolder, scanCompletedAt, directoriesDiscovered } = useGalleryStore();
+  const selectedFolder = useGalleryStore(s => s.selectedFolder);
+  const setSelectedFolder = useGalleryStore(s => s.setSelectedFolder);
+  const scanCompletedAt = useGalleryStore(s => s.scanCompletedAt);
+  const directoriesDiscovered = useGalleryStore(s => s.directoriesDiscovered);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [children, setChildren] = useState(null);
   const [loading, setLoading] = useState(false);

@@ -163,6 +163,13 @@ const LightBox = () => {
     return () => prev?.focus?.();
   }, [selectedFile]);
 
+  // Safely reset pan when zoom returns to 1 or below
+  useEffect(() => {
+    if (zoom <= 1 && (pan.x !== 0 || pan.y !== 0)) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [zoom, pan.x, pan.y]);
+
   const goNext = useCallback(() => {
     if (currentIndex < files.length - 1) setSelectedFile(files[currentIndex + 1]);
   }, [currentIndex, files, setSelectedFile]);
@@ -203,7 +210,6 @@ const LightBox = () => {
     e.preventDefault();
     setZoom((z) => {
       const n = e.deltaY < 0 ? Math.min(z + 0.2, 5) : Math.max(z - 0.2, 0.5);
-      if (n <= 1) setPan({ x: 0, y: 0 });
       return n;
     });
   }, [isImage]);
@@ -241,7 +247,7 @@ const LightBox = () => {
         case 'ArrowRight': goNext(); break;
         case 'ArrowLeft':  goPrev(); break;
         case '+': case '=': setZoom((z) => Math.min(z + 0.25, 5)); break;
-        case '-':           setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; }); break;
+        case '-':           setZoom((z) => Math.max(z - 0.25, 0.5)); break;
         case 'f': case 'F': if (selectedFile) toggleFavorite(selectedFile.path); break;
         case 'i': case 'I': toggleMetadataPanel(); break;
         case 'Tab': {
@@ -386,6 +392,7 @@ const LightBox = () => {
             <button
               id="lightbox-prev"
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              onPointerDown={(e) => e.stopPropagation()}
               className="absolute left-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
                          bg-black/40 hover:bg-black/70 border border-white/10
                          text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
@@ -400,6 +407,7 @@ const LightBox = () => {
             <button
               id="lightbox-next"
               onClick={(e) => { e.stopPropagation(); goNext(); }}
+              onPointerDown={(e) => e.stopPropagation()}
               className="absolute right-3 z-10 w-10 h-10 rounded-card flex items-center justify-center
                          bg-black/40 hover:bg-black/70 border border-white/10
                          text-white/70 hover:text-white transition-all duration-150 backdrop-blur-sm"
@@ -511,10 +519,11 @@ const LightBox = () => {
                          bg-black/60 backdrop-blur-md border border-white/10 rounded-pill
                          px-2 py-1.5 shadow-overlay"
               onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <Tooltip content="Zoom out (-)">
                 <button
-                  onClick={() => setZoom((z) => { const n = Math.max(z - 0.25, 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; })}
+                  onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
                   className="lightbox-action-btn w-7 h-7"
                   aria-label="Zoom out (-)"
                 >
