@@ -287,27 +287,33 @@ const editMedia = async (req, res) => {
 
     const decodedPath = decodeURIComponent(filePath);
     const normalizedPath = normalizePath(decodedPath);
+    const db = await getDb();
+    const existingMedia = await db.get('SELECT path FROM media WHERE path = ?', [normalizedPath]);
+    if (!existingMedia) {
+      return res.status(403).json({ error: 'Editing is only allowed for indexed media files' });
+    }
+    const sourcePath = existingMedia.path;
     
-    if (!fs.existsSync(normalizedPath)) {
+    if (!fs.existsSync(sourcePath)) {
       return res.status(404).json({ error: 'File not found' });
     }
 
     const format = operations?.format || 'png';
     const ext = format === 'jpeg' ? 'jpg' : format;
 
-    let outputPath = normalizedPath;
+    let outputPath = sourcePath;
     
     if (saveMode === 'saveAs') {
-      const parsedPath = path.parse(normalizedPath);
+      const parsedPath = path.parse(sourcePath);
       const timestamp = Date.now();
       outputPath = path.join(parsedPath.dir, `${parsedPath.name}-edited-${timestamp}.${ext}`);
     } else if (saveMode === 'replace') {
-      const parsedPath = path.parse(normalizedPath);
+      const parsedPath = path.parse(sourcePath);
       outputPath = path.join(parsedPath.dir, `${parsedPath.name}-temp-${Date.now()}.${ext}`);
     }
 
     // Read into memory to release file lock on Windows before we unlink it later
-    const inputBuffer = await fs.promises.readFile(normalizedPath);
+    const inputBuffer = await fs.promises.readFile(sourcePath);
     let pipeline = sharp(inputBuffer);
 
     if (operations?.adjustments) {
@@ -364,26 +370,30 @@ const editMedia = async (req, res) => {
     await pipeline.toFile(outputPath);
 
     if (saveMode === 'replace') {
-      if (outputPath !== normalizedPath) {
-        fs.unlinkSync(normalizedPath);
-        const finalPath = path.join(path.parse(normalizedPath).dir, `${path.parse(normalizedPath).name}.${ext}`);
+      if (outputPath !== sourcePath) {
+        const finalPath = path.join(path.parse(sourcePath).dir, `${path.parse(sourcePath).name}.${ext}`);
         if (outputPath !== finalPath) {
-             fs.renameSync(outputPath, finalPath);
-             outputPath = finalPath;
+          if (finalPath !== sourcePath && fs.existsSync(finalPath)) {
+            fs.unlinkSync(outputPath);
+            return res.status(409).json({ error: 'A file with the selected format already exists' });
+          }
+          if (fs.existsSync(finalPath)) {
+            fs.unlinkSync(finalPath);
+          }
+          fs.renameSync(outputPath, finalPath);
+          outputPath = finalPath;
         }
       }
       
       const stat = fs.statSync(outputPath);
-      const db = await getDb();
-      if (normalizedPath === outputPath) {
-        await db.run('UPDATE media SET size = ?, modified_at = ? WHERE path = ?', [stat.size, stat.mtime.toISOString(), normalizedPath]);
+      if (sourcePath === outputPath) {
+        await db.run('UPDATE media SET size = ?, modified_at = ? WHERE path = ?', [stat.size, stat.mtime.toISOString(), sourcePath]);
       } else {
-        await db.run('UPDATE media SET path = ?, ext = ?, mime_type = ?, size = ?, modified_at = ? WHERE path = ?', 
-          [outputPath, ext, getMimeType(ext), stat.size, stat.mtime.toISOString(), normalizedPath]);
+        await db.run('UPDATE media SET path = ?, name = ?, ext = ?, mime_type = ?, size = ?, modified_at = ? WHERE path = ?', 
+          [outputPath, path.basename(outputPath), ext, getMimeType(ext), stat.size, stat.mtime.toISOString(), sourcePath]);
       }
     } else {
       const stat = fs.statSync(outputPath);
-      const db = await getDb();
       const parsedPath = path.parse(outputPath);
       await db.run(
         `INSERT INTO media (path, directory_path, name, ext, mime_type, size, modified_at, is_favorite)

@@ -43,6 +43,8 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
   const [error, setError] = useState('');
   
   const imgRef = useRef(null);
+  const previewObjectUrlRef = useRef(null);
+  const croppedObjectUrlRef = useRef(null);
 
   // Generate cropped preview when switching tabs or clicking Preview
   useEffect(() => {
@@ -68,9 +70,20 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
       );
       
       canvas.toBlob((blob) => {
-        if (blob) setCroppedSrc(URL.createObjectURL(blob));
+        if (blob) {
+          if (croppedObjectUrlRef.current) {
+            URL.revokeObjectURL(croppedObjectUrlRef.current);
+          }
+          const objectUrl = URL.createObjectURL(blob);
+          croppedObjectUrlRef.current = objectUrl;
+          setCroppedSrc(objectUrl);
+        }
       }, 'image/jpeg', 0.95);
     } else {
+      if (croppedObjectUrlRef.current) {
+        URL.revokeObjectURL(croppedObjectUrlRef.current);
+        croppedObjectUrlRef.current = null;
+      }
       setCroppedSrc(null);
     }
   }, [activeTab, showCropPreview, completedCrop]);
@@ -86,6 +99,10 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
     let active = true;
     
     if (rotate === 0 && !flipH && !flipV) {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
       setPreviewSrc(getMediaUrl(file.path));
       setIsPreviewLoading(false);
       return;
@@ -115,7 +132,12 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
       canvas.toBlob((blob) => {
         if (!active) return;
         if (blob) {
-          setPreviewSrc(URL.createObjectURL(blob));
+          if (previewObjectUrlRef.current) {
+            URL.revokeObjectURL(previewObjectUrlRef.current);
+          }
+          const objectUrl = URL.createObjectURL(blob);
+          previewObjectUrlRef.current = objectUrl;
+          setPreviewSrc(objectUrl);
         }
         setIsPreviewLoading(false);
       }, 'image/jpeg', 0.95);
@@ -124,6 +146,15 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
 
     return () => { active = false; };
   }, [rotate, flipH, flipV, file.path]);
+
+  useEffect(() => () => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+    }
+    if (croppedObjectUrlRef.current) {
+      URL.revokeObjectURL(croppedObjectUrlRef.current);
+    }
+  }, []);
 
 
   const handleImageLoad = (e) => {
@@ -309,7 +340,9 @@ const ImageEditor = ({ file, onClose, onSaveSuccess }) => {
 
   const handlePointerUp = (e) => {
     setIsPanning(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
   // Add non-passive wheel listener for zoom
