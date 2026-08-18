@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
-import { getResolvedPDFJS } from 'unpdf';
+import * as pdfjsLib from 'pdfjs-dist';
+// The worker is already set in PdfViewer, but we can set it here too in case PdfThumbnail loads first.
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PdfThumbnail = ({ src, name }) => {
   const imgRef = useRef(null);
@@ -13,9 +16,11 @@ const PdfThumbnail = ({ src, name }) => {
 
     const renderFirstPage = async () => {
       try {
-        const pdfAPI = await getResolvedPDFJS();
-        if (cancelled) return;
-        const loadingTask = pdfAPI.getDocument({ url: src });
+        const loadingTask = pdfjsLib.getDocument({ 
+          url: src,
+          cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
+          cMapPacked: true
+        });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 0.45 });
@@ -32,6 +37,11 @@ const PdfThumbnail = ({ src, name }) => {
 
         // Convert to blob URL and display as <img>
         const blob = await new Promise((resolve) => offscreen.toBlob(resolve, 'image/png'));
+        
+        // Free canvas memory
+        offscreen.width = 0;
+        offscreen.height = 0;
+
         blobUrl = URL.createObjectURL(blob);
         setImgSrc(blobUrl);
         setStatus('ready');

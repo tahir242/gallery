@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { getResolvedPDFJS } from 'unpdf';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Hand, MousePointer2, AlertCircle, RotateCcw } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, AlertCircle, RotateCcw } from 'lucide-react';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 /**
  * Renders a single PDF page to an offscreen canvas and returns a Blob URL.
@@ -22,6 +25,10 @@ const renderPageToBlob = async (pdfDoc, pageNum, scale = 2) => {
   // Convert the rendered canvas to a blob URL
   const blob = await new Promise((resolve) => offscreen.toBlob(resolve, 'image/png'));
   const url = URL.createObjectURL(blob);
+
+  // Free memory immediately to prevent the "VideoFrame garbage collected" warning
+  offscreen.width = 0;
+  offscreen.height = 0;
 
   // Return the blob URL and the base (unscaled) dimensions for CSS sizing
   const unscaled = page.getViewport({ scale: 1 });
@@ -57,8 +64,12 @@ const PdfViewer = ({ src, name }) => {
     const loadPdf = async () => {
       try {
         setStatus('loading');
-        const pdfAPI = await getResolvedPDFJS();
-        const loadingTask = pdfAPI.getDocument({ url: src });
+        // By passing cMapUrl and cMapPacked, we ensure fonts/JBIG2 load correctly.
+        const loadingTask = pdfjsLib.getDocument({ 
+          url: src,
+          cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
+          cMapPacked: true
+        });
         const loadedPdf = await loadingTask.promise;
         if (cancelled) return;
 
