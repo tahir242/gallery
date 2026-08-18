@@ -1,43 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
-
-let pdfjs = null;
-
-const initPdfJs = async () => {
-  if (!pdfjs) {
-    const pdfjsModule = await import('pdfjs-dist');
-    pdfjsModule.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsModule.version}/build/pdf.worker.min.mjs`;
-    pdfjs = pdfjsModule;
-  }
-  return pdfjs;
-};
+import { getResolvedPDFJS } from 'unpdf';
 
 const PdfThumbnail = ({ src, name }) => {
-  const canvasRef = useRef(null);
+  const imgRef = useRef(null);
   const [status, setStatus] = useState('loading');
+  const [imgSrc, setImgSrc] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    let renderTask;
-    let loadingTask;
+    let blobUrl = null;
 
     const renderFirstPage = async () => {
       try {
-        const pdfAPI = await initPdfJs();
+        const pdfAPI = await getResolvedPDFJS();
         if (cancelled) return;
-        loadingTask = pdfAPI.getDocument({ url: src });
+        const loadingTask = pdfAPI.getDocument({ url: src });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 0.45 });
-        const canvas = canvasRef.current;
-        const context = canvas?.getContext('2d', { alpha: false });
-        if (!canvas || !context || cancelled) return;
 
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        renderTask = page.render({ canvas, canvasContext: context, viewport });
-        await renderTask.promise;
-        if (!cancelled) setStatus('ready');
+        // Render to an offscreen canvas (never in the DOM)
+        const offscreen = document.createElement('canvas');
+        offscreen.width = viewport.width;
+        offscreen.height = viewport.height;
+        const context = offscreen.getContext('2d');
+
+        await page.render({ canvasContext: context, viewport }).promise;
+
+        if (cancelled) return;
+
+        // Convert to blob URL and display as <img>
+        const blob = await new Promise((resolve) => offscreen.toBlob(resolve, 'image/png'));
+        blobUrl = URL.createObjectURL(blob);
+        setImgSrc(blobUrl);
+        setStatus('ready');
       } catch (error) {
         if (!cancelled && error?.name !== 'RenderingCancelledException') {
           console.error("PDF load error:", error);
@@ -49,8 +46,7 @@ const PdfThumbnail = ({ src, name }) => {
     renderFirstPage();
     return () => {
       cancelled = true;
-      renderTask?.cancel();
-      loadingTask?.destroy();
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
   }, [src]);
 
@@ -66,11 +62,15 @@ const PdfThumbnail = ({ src, name }) => {
   return (
     <div className="relative w-full h-full aspect-[3/4] flex items-center justify-center bg-surface-800 p-2">
       {status === 'loading' && <div className="absolute inset-0 skeleton" />}
-      <canvas
-        ref={canvasRef}
-        aria-label={`First page preview of ${name}`}
-        className={`relative max-h-full max-w-full object-contain rounded-sm bg-white shadow-lg transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
-      />
+      {imgSrc && (
+        <img
+          ref={imgRef}
+          src={imgSrc}
+          alt={`First page preview of ${name}`}
+          draggable={false}
+          className={`relative max-h-full max-w-full object-contain rounded-sm bg-white shadow-lg transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
+        />
+      )}
     </div>
   );
 };
