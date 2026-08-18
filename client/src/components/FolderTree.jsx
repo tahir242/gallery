@@ -337,7 +337,7 @@ const FolderTree = () => {
                     key={dir.path}
                     onClick={() => setSelectedFolder(dir.path)}
                     className={`
-                      w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm
+                      group w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm
                       transition-colors duration-150 text-left
                       ${selectedFolder === dir.path
                         ? 'bg-accent-500/15 text-accent-300'
@@ -346,7 +346,21 @@ const FolderTree = () => {
                     `}
                   >
                     <Folder size={14} className="flex-shrink-0 text-accent-400/80" />
-                    <span className="whitespace-nowrap flex-1 font-medium text-xs">{dir.name}</span>
+                    <span className="whitespace-nowrap flex-1 font-medium text-xs truncate">{dir.name}</span>
+                    <div className="flex items-center gap-2 ml-auto pl-3 opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      {dir.subdirCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Folder size={10} className="text-surface-500" />
+                          <span className="text-[10px] text-surface-500">{dir.subdirCount}</span>
+                        </div>
+                      )}
+                      {dir.fileCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <FileText size={10} className="text-surface-500" />
+                          <span className="text-[10px] text-surface-500">{dir.fileCount}</span>
+                        </div>
+                      )}
+                    </div>
                   </button>
                 ))
               ) : (
