@@ -6,7 +6,7 @@ import useBreakpoint from '../hooks/useBreakpoint';
 import { getDirectories, searchDirectories } from '../services/api';
 
 /* ─── Tree Node ─────────────────────────────────────────────────────────────── */
-const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCount = 0, depth = 0, defaultExpanded = false }) => {
+const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCount = 0, depth = 0, defaultExpanded = false, isRootNode = false }) => {
   const selectedFolder = useGalleryStore(s => s.selectedFolder);
   const setSelectedFolder = useGalleryStore(s => s.setSelectedFolder);
   const scanCompletedAt = useGalleryStore(s => s.scanCompletedAt);
@@ -16,7 +16,7 @@ const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCoun
   const [loading, setLoading] = useState(false);
 
   const isSelected = selectedFolder === nodePath;
-  const isRoot = depth === 0;
+  const isRoot = isRootNode;
 
   const fetchChildren = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -93,10 +93,10 @@ const TreeNode = ({ path: nodePath, name, hasChildren, fileCount = 0, subdirCoun
           )}
         </div>
 
-        <span className="whitespace-nowrap font-medium text-xs">{name}</span>
+        <span className="whitespace-nowrap font-medium text-xs truncate flex-1">{name}</span>
         
         {!isRoot && (
-          <div className="flex items-center gap-2 ml-auto pl-3 opacity-40 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-2 ml-auto pl-3 opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0">
             {subdirCount > 0 && (
               <Tooltip content={`${subdirCount.toLocaleString()} subfolders`}>
                 <div className="flex items-center gap-1 text-surface-500">
@@ -333,21 +333,15 @@ const FolderTree = () => {
                 </div>
               ) : searchResults.length > 0 ? (
                 searchResults.map(dir => (
-                  <button
+                  <TreeNode
                     key={dir.path}
-                    onClick={() => setSelectedFolder(dir.path)}
-                    className={`
-                      w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm
-                      transition-colors duration-150 text-left
-                      ${selectedFolder === dir.path
-                        ? 'bg-accent-500/15 text-accent-300'
-                        : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
-                      }
-                    `}
-                  >
-                    <Folder size={14} className="flex-shrink-0 text-accent-400/80" />
-                    <span className="whitespace-nowrap flex-1 font-medium text-xs">{dir.name}</span>
-                  </button>
+                    path={dir.path}
+                    name={dir.name}
+                    hasChildren={dir.hasChildren}
+                    fileCount={dir.fileCount}
+                    subdirCount={dir.subdirCount}
+                    depth={0}
+                  />
                 ))
               ) : (
                 <p className="text-xs text-surface-600 px-2 mt-2">No matching folders</p>
@@ -364,6 +358,7 @@ const FolderTree = () => {
               hasChildren={true}
               depth={0}
               defaultExpanded={true}
+              isRootNode={true}
             />
           ) : (
             <p className="text-xs text-surface-600 px-2 mt-2">

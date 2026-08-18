@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Expandable Search Results**: Converted static directory search results into fully interactive tree nodes. Users can now click the expansion arrow on any searched folder to dynamically load, indent, and navigate its subdirectories directly within the search pane without losing their search context.
 - **Native Document Previews**: Replaced generic fallback icons with full-featured native viewers for PDFs, Word Documents (`.docx`), Excel Spreadsheets (`.xlsx`, `.csv`), and Text files (`.txt`).
 - **Audio Playback UI**: Added a slick custom audio player with waveform-inspired UI for `.mp3` and `.wav` files inside the LightBox.
 - **Advanced PDF Engine**: Integrated `pdfjs-dist` via offscreen Canvas rendering. Includes full JBIG2 decoding support and explicit memory garbage collection to prevent Chromium VideoFrame leaks.
@@ -19,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Floating Controls**: Moved all viewer-specific controls (PDF zoom/page inputs, spreadsheet tab selectors, text line counts) into floating pill bars pinned to the bottom of the screen.
 
 ### Fixed
+- Fixed an issue where clicking a location from the "Recent Scans" list would ignore the originally saved file extensions and use the default selections. The scanner now correctly restores and applies the exact file types used during the initial scan.
+- Fixed a bug where opening a specific scanned location or clicking the "Favorites" tab would incorrectly display media and favorites from *all* indexed locations. All media lists, file type totals, and favorite counters are now strictly scoped to the active root directory.
+- Fixed missing file and subfolder counts in the directory search results by updating the backend `searchDirectories` API to properly compute and return these metrics.
 - Fixed LightBox metadata panel z-index issues where the "File Info" header was hidden behind absolute-positioned global action buttons.
 - Fixed a massive memory leak and black-screen UI crash when deep-zooming large PDFs by migrating to temporary offscreen canvas blobs instead of DOM-injected canvas layers.
 - Fixed `pdf.js` JBIG2 initialization warnings and missing CMaps by wiring up the official web worker natively via Vite.

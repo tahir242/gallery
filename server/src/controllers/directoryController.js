@@ -130,11 +130,28 @@ const searchDirectories = async (req, res) => {
       [rootLike, queryLike]
     );
     
-    // We don't need hasChildren for search results since they are flat
-    const formatted = dirs.map(d => ({
-      path: d.path,
-      name: d.name,
-      hasChildren: false
+    const formatted = await Promise.all(dirs.map(async (d) => {
+      const sep = d.path.includes('\\') ? '\\' : '/';
+      const descendantPrefix = d.path + sep;
+      const upperBound = descendantPrefix + String.fromCharCode(65535);
+      
+      const fileCount = await db.get(
+        `SELECT COUNT(*) as c FROM media WHERE directory_path = ? OR (directory_path >= ? AND directory_path < ?)`, 
+        [d.path, descendantPrefix, upperBound]
+      ).then(r => r.c);
+      
+      const subdirCount = await db.get(
+        `SELECT COUNT(*) as c FROM directories WHERE parent_path = ? OR (parent_path >= ? AND parent_path < ?)`, 
+        [d.path, descendantPrefix, upperBound]
+      ).then(r => r.c);
+
+      return {
+        path: d.path,
+        name: d.name,
+        hasChildren: subdirCount > 0,
+        fileCount,
+        subdirCount
+      };
     }));
 
     res.json({ directories: formatted });
@@ -151,7 +168,7 @@ const getHistory = async (req, res) => {
   try {
     const db = await getDb();
     const history = await db.all(`
-      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt
+      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt, s.selected_extensions as selectedExtensions
       FROM scans s
       INNER JOIN (
           SELECT path, MAX(started_at) as max_started
@@ -161,7 +178,13 @@ const getHistory = async (req, res) => {
       ORDER BY s.started_at DESC
       LIMIT 10
     `);
-    res.json(history);
+    
+    const parsedHistory = history.map(h => ({
+      ...h,
+      selectedExtensions: h.selectedExtensions ? JSON.parse(h.selectedExtensions) : null
+    }));
+    
+    res.json(parsedHistory);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
