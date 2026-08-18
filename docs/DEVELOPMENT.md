@@ -20,7 +20,13 @@ The Gallery is designed as a hybrid application that can run both as a standard 
 - **Frontend**: React 19, Vite, Tailwind CSS, Zustand (State Management).
 - **Backend API**: Node.js, Express.js.
 - **Database**: SQLite (local, portable).
+- **Image Processing**: `sharp` (Node.js high-performance C++ image manipulation).
 - **Desktop Wrapper**: Electron, electron-builder.
+
+### Image Editing Architecture
+The application features a non-destructive frontend editor and a highly optimized backend processor.
+- **Frontend (`ImageEditor.jsx`)**: Uses HTML5 Canvas filters and `react-image-crop` for zero-latency UI previews (brightness, cropping, rotation) without altering the source file.
+- **Backend (`mediaController.js`)**: Once the user saves, operations are dispatched to the Node.js backend where `sharp` executes the pipeline (e.g., Modulate -> Rotate -> Extract -> Resize -> Convert). To prevent `EBUSY` file locking errors on Windows during destructive saves, files are completely read into memory buffers before `sharp` processing begins.
 
 ### How it Works Together
 1. **Development Mode (`npm run dev`)**: We use `concurrently` to spawn two processes: a Vite development server (port `5173`) for HMR on the frontend, and a `nodemon` process (port `5000`) for the Express backend.

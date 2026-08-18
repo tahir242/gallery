@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.2.0] - 2026-08-18
 ### Added
+- **Professional Image Editor**: Introduced a massive, Apple Photos/Adobe Lightroom-inspired image editing suite powered by `sharp` and HTML5 Canvas.
+- **Advanced Cropping**: Added freeform cropping, aspect ratio locks (1:1, 16:9, 4:3, 9:16), cinematic 80% darkened overlay masks, elegant L-shaped iOS-style corner handles, and a dynamic fade-in Rule of Thirds grid.
+- **Pan & Zoom Controls**: Added infinite zoom (up to 400%), seamless mouse wheel scrolling, and hand-tool panning across the editor canvas.
+- **Live Adjustments**: Integrated real-time Brightness, Saturation, and Blur tuning tools, alongside 90-degree rotations and horizontal/vertical flips.
+- **Smart Formatting**: Added dynamic export capabilities allowing users to choose output format (PNG, JPEG, WebP) and precise pixel dimensions.
 - **Exhaustive Metadata & EXIF Extraction**: Integrated `exiftool-vendored` in the backend to perform highly optimized, instant background reads of all metadata tags (EXIF, XMP, GPS, IPTC, ICC, etc.) across images, videos, audio, and PDF files.
 - **Metadata Viewer UI**: Added an interactive "File Info" panel to the LightBox viewer that dynamically lists all extensive metadata extracted from the file.
 
@@ -18,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Number Formatting**: Applied consistent comma-separated number formatting to all tree-level folder and file counters.
 
 ### Fixed
+- Fixed critical Windows file locking (`EBUSY: resource busy or locked`) crashes during destructive image saves by reading original files into memory buffers prior to processing.
+- Fixed `bad extract area` cropping errors by implementing strict coordinate clamping, guaranteeing coordinates never exceed native image boundaries during export.
+- Fixed Lightbox UI bleed-through in the Image Editor by applying a solid `#0a0a0a` background layer.
+- Fixed a dark-mode styling issue where the format selection dropdown (`<select>`) text was invisible on white default browser popups by assigning strict background colors.
 - Fixed a major race condition in the polling mechanism where overlapping status requests during heavy indexing could permanently freeze the UI in a "scanning" state.
 - Fixed an infinite scrolling architectural bug in the Masonry layout where `react-masonry-css` column distribution caused premature data fetching. Replaced mapped item observers with a unified sentinel component for accurate intersection tracking.
 - Fixed a JSX parsing syntax error that crashed the build after migrating `MediaCard.jsx` to the new custom tooltip component.

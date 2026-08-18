@@ -76,6 +76,13 @@ If you prefer to run the application without installing it, or if you downloaded
   - Filter your media by specific file extensions (e.g., show only `.png` or `.mp4`).
   - Sort your gallery by **Name**, **File Size**, or **Date Modified** (in ascending or descending order).
 
+### Editing Images
+Gallery includes a built-in, professional image editing suite accessible by clicking the **Edit (Pencil)** icon on any image.
+- **Cropping**: Draw a freeform crop box, or use the quick-select toolbar to lock the aspect ratio to Square, 16:9, 4:3, or 9:16.
+- **Pan & Zoom**: Scroll your mouse wheel to infinitely zoom into your image (up to 400%). When zoomed in, click and drag anywhere to pan the image around.
+- **Live Adjustments**: Switch to the **Adjust** tab to tweak Brightness, Saturation, and Blur in real-time.
+- **Exporting**: Save your edits destructively by clicking **Replace**, or non-destructively by clicking **Save as New**. You can also convert formats (PNG, JPEG, WebP) and resize the image dimensions precisely on export.
+
 ### Folder Tree Navigation
 - Navigate complex directory structures easily using the dedicated sidebar tree.
 - Click on any folder to view the media contained specifically within that path.

@@ -26,6 +26,7 @@ Our platform is continually evolving to give you the best experience to manage y
 ### Core Capabilities
 - 📂 **Universal Scanning**: Seamlessly index local paths and UNC network paths (`\\server\share\path`).
 - 🖼️ **Rich Media Support**: Display images, videos, audio, and PDFs in a responsive, modern grid.
+- 🎨 **Professional Image Editor**: Built-in editing suite with freeform cropping, aspect ratio locks, Brightness/Saturation/Blur sliders, infinite zoom, and smart format conversion.
 - 📄 **PDF Handling**: Render a beautiful first-page PDF thumbnail and open PDFs directly in the gallery viewer.
 - 🔍 **Deep Search & Filters**: Search across all files and child directories. Filter by any discovered file extension.
 - 🌳 **Folder Tree Navigation**: Easily browse through complex folder structures with a dedicated sidebar.
@@ -132,7 +133,14 @@ npm run client
 | `GET`  | `/api/directory/status` | Get background indexing progress |
 | `GET`  | `/api/directory/files` | Query indexed files (pagination, search, filters, sorting) |
 | `GET`  | `/api/directory/history` | View scan session history |
-| `GET`  | `/api/media/serve` | Serve a media file |
+| `GET`  | `/api/media/serve` | Serve a media file (images, videos, audio, pdfs) |
+| `GET`  | `/api/media/metadata` | Extract exhaustive EXIF, GPS, and XMP metadata |
+| `GET`  | `/api/media/info` | Retrieve basic media properties (resolution, size) |
+| `GET`  | `/api/media/list` | Paginated retrieval of media files |
+| `GET`  | `/api/media/types` | Retrieve a list of all indexed file extensions |
+| `POST` | `/api/media/favorite` | Toggle the favorite/starred status of a file |
+| `GET`  | `/api/media/favorites/count` | Retrieve total number of favorited items |
+| `POST` | `/api/media/edit` | Apply non-destructive/destructive `sharp` image edits (crop, rotate, modulate, format conversion) |
 
 ---
 
