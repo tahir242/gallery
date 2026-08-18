@@ -48,6 +48,7 @@
     "exiftool-vendored": "^37.2.0",
     "express": "^4.19.2",
     "morgan": "^1.10.0",
+    "sharp": "^0.35.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1"
   },

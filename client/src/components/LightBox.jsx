@@ -3,11 +3,12 @@ import {
   X, ChevronLeft, ChevronRight,
   Download, ZoomIn, ZoomOut,
   Info, Heart, Copy, Check, FileText,
-  RotateCcw,
+  RotateCcw, Edit,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { getMediaUrl, getMediaMetadataApi } from '../services/api';
 import { Tooltip } from './ui/Tooltip';
+import ImageEditor from './ImageEditor';
 
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -148,6 +149,7 @@ const LightBox = () => {
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [mediaError, setMediaError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Touch/swipe state
   const touchStartX = useRef(null);
@@ -163,6 +165,7 @@ const LightBox = () => {
     setPan({ x: 0, y: 0 });
     setMediaError(false);
     setCopied(false);
+    setIsEditing(false);
   }, [selectedFile]);
 
   // Focus management
@@ -332,6 +335,16 @@ const LightBox = () => {
 
         {/* Right: action cluster */}
         <div className="flex items-center gap-1 pointer-events-auto">
+          {/* Edit */}
+          {isImage && (
+            <ActionBtn
+              id="lightbox-edit"
+              onClick={() => setIsEditing(true)}
+              icon={Edit}
+              label="Edit Image"
+            />
+          )}
+
           {/* Favorite */}
           <ActionBtn
             id="lightbox-fav"
@@ -581,6 +594,18 @@ const LightBox = () => {
           <MetadataPanel file={selectedFile} onClose={toggleMetadataPanel} />
         )}
       </div>
+
+      {isEditing && (
+        <ImageEditor 
+          file={selectedFile} 
+          onClose={() => setIsEditing(false)} 
+          onSaveSuccess={(newPath) => {
+             setIsEditing(false);
+             // Close lightbox to let user see grid refresh (could be improved to stay open, but grid needs update anyway)
+             close();
+          }} 
+        />
+      )}
     </div>
   );
 };

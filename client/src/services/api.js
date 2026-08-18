@@ -43,3 +43,6 @@ export const getFavoriteCountApi = () =>
 
 export const getMediaMetadataApi = (path) =>
   api.get('/media/metadata', { params: { path } }).then(r => r.data);
+
+export const editMediaApi = (data) =>
+  api.post('/media/edit', data).then(r => r.data);
