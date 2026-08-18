@@ -28,6 +28,11 @@ The application features a non-destructive frontend editor and a highly optimize
 - **Frontend (`ImageEditor.jsx`)**: Uses HTML5 Canvas filters and `react-image-crop` for zero-latency UI previews (brightness, cropping, rotation) without altering the source file.
 - **Backend (`mediaController.js`)**: Once the user saves, operations are dispatched to the Node.js backend where `sharp` executes the pipeline (e.g., Modulate -> Rotate -> Extract -> Resize -> Convert). To prevent `EBUSY` file locking errors on Windows during destructive saves, files are completely read into memory buffers before `sharp` processing begins.
 
+### Native Document Viewers
+The application integrates several heavily-customized document decoders to prevent leaving the application context:
+- **PDFs (`pdfjs-dist`)**: Instead of insecure `<iframe>` embeds, PDFs are decoded via official PDF.js workers and rendered dynamically to temporary off-screen Canvas elements, extracted as Blob URLs, and injected into native `<img>` tags. This architecture prevents chromium VideoFrame garbage collection memory leaks and guarantees seamless translation panning/zooming via CSS hardware acceleration.
+- **Office & Text (`mammoth`, `xlsx`)**: Word documents and Excel spreadsheets are parsed on the client into native DOM structures and interactive HTML tables, wrapped in our custom LightBox aesthetic.
+
 ### How it Works Together
 1. **Development Mode (`npm run dev`)**: We use `concurrently` to spawn two processes: a Vite development server (port `5173`) for HMR on the frontend, and a `nodemon` process (port `5000`) for the Express backend.
 2. **Desktop Development (`npm run electron:dev`)**: Spawns Vite for the frontend and runs the Electron wrapper `main.js`. 

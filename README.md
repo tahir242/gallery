@@ -27,7 +27,7 @@ Our platform is continually evolving to give you the best experience to manage y
 - 📂 **Universal Scanning**: Seamlessly index local paths and UNC network paths (`\\server\share\path`).
 - 🖼️ **Rich Media Support**: Display images, videos, audio, and PDFs in a responsive, modern grid.
 - 🎨 **Professional Image Editor**: Built-in editing suite with freeform cropping, aspect ratio locks, Brightness/Saturation/Blur sliders, infinite zoom, and smart format conversion.
-- 📄 **PDF Handling**: Render a beautiful first-page PDF thumbnail and open PDFs directly in the gallery viewer.
+- 📄 **Native Document Previews**: Render first-page thumbnails and fully interactive native viewers for PDFs, Word Documents (`.docx`), Excel Spreadsheets (`.xlsx`, `.csv`), Text (`.txt`), and Audio files directly in the LightBox.
 - 🔍 **Deep Search & Filters**: Search across all files and child directories. Filter by any discovered file extension.
 - 🌳 **Folder Tree Navigation**: Easily browse through complex folder structures with a dedicated sidebar.
 - 📱 **Mobile-First Design**: Completely responsive UI crafted with Tailwind CSS for perfect viewing on any device.
