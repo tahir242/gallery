@@ -141,7 +141,7 @@ const useGalleryStore = create((set, get) => ({
   
   fetchFavoriteCount: async () => {
     try {
-      const count = await getFavoriteCountApi();
+      const count = await getFavoriteCountApi(get().currentPath);
       set({ totalFavoritesCount: count });
     } catch (e) {
       console.error('Failed to fetch favorite count', e);
@@ -325,7 +325,7 @@ const useGalleryStore = create((set, get) => ({
 
     try {
       const result = await getMedia({
-        directoryPath: selectedFolder === 'all' ? '' : selectedFolder,
+        directoryPath: selectedFolder === 'all' ? currentPath : selectedFolder,
         ext: selectedFileType,
         search: searchQuery,
         favoritesOnly: get().showFavorites,
@@ -370,7 +370,7 @@ const useGalleryStore = create((set, get) => ({
 
       if (reset) {
         try {
-          const types = await getMediaTypes(selectedFolder === 'all' ? '' : selectedFolder);
+          const types = await getMediaTypes(selectedFolder === 'all' ? currentPath : selectedFolder);
           set((state) => (state.filesRequestId === requestId ? { availableFileTypes: types } : state));
         } catch (e) {
           // ignore type fetch error

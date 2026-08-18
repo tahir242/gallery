@@ -38,8 +38,8 @@ export const deleteHistory = (path) =>
 export const toggleFavoriteApi = (path) =>
   api.post('/media/favorite', { path }).then(r => r.data);
 
-export const getFavoriteCountApi = () =>
-  api.get('/media/favorites/count').then(r => r.data.count);
+export const getFavoriteCountApi = (directoryPath) =>
+  api.get('/media/favorites/count', { params: { directoryPath } }).then(r => r.data.count);
 
 export const getMediaMetadataApi = (path) =>
   api.get('/media/metadata', { params: { path } }).then(r => r.data);

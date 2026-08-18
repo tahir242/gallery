@@ -267,7 +267,16 @@ const toggleFavorite = async (req, res) => {
 const getFavoriteCount = async (req, res) => {
   try {
     const db = await getDb();
-    const result = await db.get('SELECT COUNT(*) as count FROM media WHERE is_favorite = 1');
+    const { directoryPath } = req.query;
+    let query = 'SELECT COUNT(*) as count FROM media WHERE is_favorite = 1';
+    const params = [];
+    
+    if (directoryPath) {
+      query += ` AND directory_path LIKE ?`;
+      params.push(directoryPath + '%');
+    }
+    
+    const result = await db.get(query, params);
     res.json({ count: result.count });
   } catch (err) {
     res.status(500).json({ error: err.message });
