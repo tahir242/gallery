@@ -83,6 +83,13 @@ Gallery includes a built-in, professional image editing suite accessible by clic
 - **Live Adjustments**: Switch to the **Adjust** tab to tweak Brightness, Saturation, and Blur in real-time.
 - **Exporting**: Save your edits destructively by clicking **Replace**, or non-destructively by clicking **Save as New**. You can also convert formats (PNG, JPEG, WebP) and resize the image dimensions precisely on export.
 
+### Viewing Documents & Media
+Beyond images and videos, Gallery includes native full-screen viewers for an array of document formats:
+- **PDFs**: Open PDFs natively within the app. Use the mouse wheel or the floating control bar to zoom in and drag to pan around. Rapidly switch pages using the floating input or keyboard shortcuts (`PageUp`, `PageDown`, `Ctrl + Left/Right`).
+- **Word & Text**: View `.docx` and `.txt` files directly without needing external editors.
+- **Excel**: View `.xlsx`, `.xls`, and `.csv` files natively. Use the floating bottom bar to switch between different spreadsheet tabs.
+- **Audio**: Play `.mp3` and `.wav` files using a custom, waveform-inspired audio player.
+
 ### Folder Tree Navigation
 - Navigate complex directory structures easily using the dedicated sidebar tree.
 - Click on any folder to view the media contained specifically within that path.

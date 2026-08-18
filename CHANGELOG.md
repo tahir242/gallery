@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Native Document Previews**: Replaced generic fallback icons with full-featured native viewers for PDFs, Word Documents (`.docx`), Excel Spreadsheets (`.xlsx`, `.csv`), and Text files (`.txt`).
+- **Audio Playback UI**: Added a slick custom audio player with waveform-inspired UI for `.mp3` and `.wav` files inside the LightBox.
+- **Advanced PDF Engine**: Integrated `pdfjs-dist` via offscreen Canvas rendering. Includes full JBIG2 decoding support and explicit memory garbage collection to prevent Chromium VideoFrame leaks.
+- **PDF Keyboard Navigation**: Added rapid page switching via `PageUp`, `PageDown`, `Ctrl + ArrowRight`, and `Ctrl + ArrowLeft`.
+- **Translation Panning**: Rebuilt the PDF zoom engine to use hardware-accelerated CSS `transform: translate(x,y) scale(z)` (matching the image viewer) instead of native browser scrolling.
+
+### Changed
+- **Unified LightBox UX**: Stripped all background colors, scrollbars, and title bars from the custom document/media viewers, nesting them directly onto the LightBox's dark overlay for a highly consistent cinematic feel.
+- **Floating Controls**: Moved all viewer-specific controls (PDF zoom/page inputs, spreadsheet tab selectors, text line counts) into floating pill bars pinned to the bottom of the screen.
+
+### Fixed
+- Fixed LightBox metadata panel z-index issues where the "File Info" header was hidden behind absolute-positioned global action buttons.
+- Fixed a massive memory leak and black-screen UI crash when deep-zooming large PDFs by migrating to temporary offscreen canvas blobs instead of DOM-injected canvas layers.
+- Fixed `pdf.js` JBIG2 initialization warnings and missing CMaps by wiring up the official web worker natively via Vite.
+
 ## [1.2.0] - 2026-08-18
 ### Added
 - **Professional Image Editor**: Introduced a massive, Apple Photos/Adobe Lightroom-inspired image editing suite powered by `sharp` and HTML5 Canvas.

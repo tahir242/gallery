@@ -3,12 +3,17 @@ import {
   X, ChevronLeft, ChevronRight,
   Download, ZoomIn, ZoomOut,
   Info, Heart, Copy, Check, FileText,
-  RotateCcw, Edit,
+  RotateCcw, Edit, FileSpreadsheet, Presentation,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { getMediaUrl, getMediaMetadataApi } from '../services/api';
 import { Tooltip } from './ui/Tooltip';
 import ImageEditor from './ImageEditor';
+import PdfViewer from './PdfViewer';
+import DocxViewer from './DocxViewer';
+import SpreadsheetViewer from './SpreadsheetViewer';
+import TextViewer from './TextViewer';
+import AudioPlayer from './AudioPlayer';
 
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -82,10 +87,10 @@ const MetadataPanel = ({ file, onClose }) => {
     : [];
 
   return (
-    <div className="metadata-panel flex flex-col w-72 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto">
+    <div className="metadata-panel flex flex-col w-72 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto z-40">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 sticky top-0 bg-black/50 backdrop-blur-md z-10">
         <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">File Info</span>
-        <button onClick={onClose} className="lightbox-action-btn invisible pointer-events-none" aria-label="Close info panel">
+        <button onClick={onClose} className="lightbox-action-btn" aria-label="Close info panel">
           <X size={14} />
         </button>
       </div>
@@ -474,46 +479,59 @@ const LightBox = () => {
 
           {/* Audio */}
           {selectedFile.type === 'audio' && (
-            <div
-              className="flex flex-col items-center gap-6 p-10 animate-zoom-in"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/40">
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-              </div>
-              <p className="text-white/60 text-sm font-medium max-w-xs text-center truncate">{selectedFile.name}</p>
-              <audio src={mediaUrl} controls className="w-72" onError={() => setMediaError(true)} />
-            </div>
+            <AudioPlayer
+              src={mediaUrl}
+              name={selectedFile.name}
+            />
           )}
 
           {/* PDF */}
           {selectedFile.type === 'document' && selectedFile.ext === 'pdf' && (
-            <iframe
-              src={mediaUrl}
-              title={`PDF preview: ${selectedFile.name}`}
-              className="w-full rounded-[6px] bg-white animate-zoom-in"
-              style={{ maxWidth: '90vw', height: 'calc(100vh - 80px)' }}
-              onLoad={() => setMediaError(false)}
-              onClick={(e) => e.stopPropagation()}
+            <PdfViewer 
+              src={mediaUrl} 
+              name={selectedFile.name} 
             />
           )}
 
-          {/* Generic Document */}
-          {selectedFile.type === 'document' && selectedFile.ext !== 'pdf' && (
+          {/* Word Documents (.docx) */}
+          {selectedFile.type === 'document' && selectedFile.ext === 'docx' && (
+            <DocxViewer
+              src={mediaUrl}
+              name={selectedFile.name}
+            />
+          )}
+
+          {/* Spreadsheets (.xlsx, .xls, .csv) */}
+          {selectedFile.type === 'document' && ['xlsx', 'xls', 'csv'].includes(selectedFile.ext) && (
+            <SpreadsheetViewer
+              src={mediaUrl}
+              name={selectedFile.name}
+            />
+          )}
+
+          {/* Text files (.txt) */}
+          {selectedFile.type === 'document' && selectedFile.ext === 'txt' && (
+            <TextViewer
+              src={mediaUrl}
+              name={selectedFile.name}
+            />
+          )}
+
+          {/* Unsupported documents (.doc, .ppt, .pptx) — download fallback */}
+          {selectedFile.type === 'document' && !['pdf', 'docx', 'xlsx', 'xls', 'csv', 'txt'].includes(selectedFile.ext) && (
             <div
               className="flex flex-col items-center gap-6 p-10 animate-zoom-in"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                <FileText size={48} className="text-white/40" />
+                {['ppt', 'pptx'].includes(selectedFile.ext)
+                  ? <Presentation size={48} className="text-orange-400/60" />
+                  : <FileText size={48} className="text-white/40" />
+                }
               </div>
               <p className="text-white/60 text-sm font-medium max-w-xs text-center truncate">{selectedFile.name}</p>
               <p className="text-white/40 text-xs text-center max-w-sm leading-relaxed">
-                Preview not available for this file type.
+                Preview not available for .{selectedFile.ext} files.
               </p>
               <a
                 href={mediaUrl}
