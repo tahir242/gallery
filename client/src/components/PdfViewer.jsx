@@ -40,14 +40,12 @@ const PdfViewer = ({ src, name }) => {
   const [status, setStatus] = useState('loading'); // 'loading' | 'rendering' | 'ready' | 'error'
 
   const [pageImageUrl, setPageImageUrl] = useState(null);
-  const [baseDims, setBaseDims] = useState({ width: 600, height: 800 });
   const [zoom, setZoom] = useState(1);
-  const [fitZoom, setFitZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   const [isPanning, setIsPanning] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, panX: 0, panY: 0 });
 
   const containerRef = useRef(null);
   const currentBlobUrl = useRef(null); // Track for cleanup
@@ -98,23 +96,6 @@ const PdfViewer = ({ src, name }) => {
         currentBlobUrl.current = result.url;
 
         setPageImageUrl(result.url);
-        setBaseDims({ width: result.baseWidth, height: result.baseHeight });
-
-        // Calculate fit-to-window zoom on first page load
-        if (containerRef.current) {
-          const padX = 40;
-          const padY = 160;
-          const cW = containerRef.current.clientWidth - padX;
-          const cH = containerRef.current.clientHeight - padY;
-          if (cW > 0 && cH > 0) {
-            const fit = Math.min(Math.max(Math.min(cW / result.baseWidth, cH / result.baseHeight), 0.25), 3);
-            setFitZoom(fit);
-            if (currentPage === 1 && zoom === 1) {
-              setZoom(fit);
-            }
-          }
-        }
-
         setStatus('ready');
       } catch (err) {
         console.error('Failed to render page', err);
@@ -137,42 +118,45 @@ const PdfViewer = ({ src, name }) => {
     };
   }, []);
 
-  // ── 4. CTRL + Mouse Wheel zoom ──────────────────────────────────
+  // ── 4. Mouse Wheel zoom (no ctrl) ───────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheel = (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        setZoom((prev) => {
-          const delta = e.deltaY < 0 ? 0.1 : -0.1;
-          return Math.min(4, Math.max(0.25, prev + delta));
-        });
-      }
+      e.preventDefault();
+      setZoom((prev) => {
+        const delta = e.deltaY < 0 ? 0.1 : -0.1;
+        return Math.min(4, Math.max(0.25, prev + delta));
+      });
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // ── Safely reset pan when zoom returns to 1 or below ─────────────
+  useEffect(() => {
+    if (zoom <= 1 && (pan.x !== 0 || pan.y !== 0)) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [zoom, pan.x, pan.y]);
+
   // ── Panning ──────────────────────────────────────────────────────
   const handlePointerDown = (e) => {
     if (isPanning && containerRef.current) {
       setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-      setScrollStart({
-        x: containerRef.current.scrollLeft,
-        y: containerRef.current.scrollTop,
-      });
+      setDragStart({ x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y });
       e.currentTarget.setPointerCapture(e.pointerId);
     }
   };
 
   const handlePointerMove = (e) => {
-    if (isDragging && isPanning && containerRef.current) {
-      containerRef.current.scrollLeft = scrollStart.x - (e.clientX - dragStart.x);
-      containerRef.current.scrollTop = scrollStart.y - (e.clientY - dragStart.y);
+    if (isDragging && isPanning) {
+      setPan({
+        x: dragStart.panX + (e.clientX - dragStart.x),
+        y: dragStart.panY + (e.clientY - dragStart.y),
+      });
     }
   };
 
@@ -196,31 +180,44 @@ const PdfViewer = ({ src, name }) => {
     }
   };
 
-  const jumpPrev = () => {
-    const p = Math.max(1, currentPage - 1);
-    setCurrentPage(p);
-    setPageInput(p.toString());
-  };
+  const jumpNext = useCallback(() => {
+    setCurrentPage((prev) => {
+      const p = Math.min(totalPages, prev + 1);
+      setPageInput(p.toString());
+      return p;
+    });
+  }, [totalPages]);
 
-  const jumpNext = () => {
-    const p = Math.min(totalPages, currentPage + 1);
-    setCurrentPage(p);
-    setPageInput(p.toString());
-  };
+  const jumpPrev = useCallback(() => {
+    setCurrentPage((prev) => {
+      const p = Math.max(1, prev - 1);
+      setPageInput(p.toString());
+      return p;
+    });
+  }, []);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'PageDown' || (e.ctrlKey && e.key === 'ArrowRight')) {
+        e.preventDefault();
+        e.stopPropagation();
+        jumpNext();
+      } else if (e.key === 'PageUp' || (e.ctrlKey && e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        e.stopPropagation();
+        jumpPrev();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [jumpNext, jumpPrev]);
 
   const resetZoom = useCallback(() => {
-    if (containerRef.current && baseDims.width > 0) {
-      const padX = 40;
-      const padY = 160;
-      const cW = containerRef.current.clientWidth - padX;
-      const cH = containerRef.current.clientHeight - padY;
-      if (cW > 0 && cH > 0) {
-        const fit = Math.min(Math.max(Math.min(cW / baseDims.width, cH / baseDims.height), 0.25), 3);
-        setFitZoom(fit);
-        setZoom(fit);
-      }
-    }
-  }, [baseDims]);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   // ── Error state ──────────────────────────────────────────────────
   if (status === 'error') {
@@ -241,7 +238,7 @@ const PdfViewer = ({ src, name }) => {
       {/* ── Viewer area ─────────────────────────────────────────── */}
       <div
         ref={containerRef}
-        className={`flex-1 overflow-auto flex justify-center items-center w-full h-full ${
+        className={`flex-1 flex justify-center items-center w-full h-full overflow-hidden ${
           isPanning ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
         }`}
         onPointerDown={handlePointerDown}
@@ -249,7 +246,7 @@ const PdfViewer = ({ src, name }) => {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <div className="pt-20 pb-24 px-4 flex flex-col items-center min-w-max min-h-max">
+        <div className="pt-20 pb-24 px-4 flex flex-col items-center justify-center w-full h-full relative">
           {(status === 'loading' || status === 'rendering') && (
             <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -261,13 +258,12 @@ const PdfViewer = ({ src, name }) => {
               src={pageImageUrl}
               alt={`Page ${currentPage} of ${name}`}
               draggable={false}
-              className="shadow-2xl select-none"
+              className="shadow-2xl select-none max-w-full max-h-full object-contain"
               style={{
-                width: `${baseDims.width * zoom}px`,
-                height: `${baseDims.height * zoom}px`,
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                touchAction: 'none',
                 opacity: status === 'ready' || status === 'rendering' ? 1 : 0,
-                transition: 'width 0.05s ease-out, height 0.05s ease-out',
-                imageRendering: zoom > 2 ? 'pixelated' : 'auto',
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out, opacity 0.1s ease-out'
               }}
             />
           )}
@@ -334,7 +330,7 @@ const PdfViewer = ({ src, name }) => {
           <ZoomIn size={13} />
         </button>
 
-        {Math.round(zoom * 100) !== Math.round(fitZoom * 100) && (
+        {zoom !== 1 && (
           <button
             onClick={resetZoom}
             className="w-7 h-7 flex items-center justify-center text-white/70 hover:text-white transition-colors border-l border-white/10 ml-1"
