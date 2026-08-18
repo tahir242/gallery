@@ -148,7 +148,7 @@ const searchDirectories = async (req, res) => {
       return {
         path: d.path,
         name: d.name,
-        hasChildren: false,
+        hasChildren: subdirCount > 0,
         fileCount,
         subdirCount
       };
