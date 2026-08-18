@@ -87,10 +87,10 @@ const MetadataPanel = ({ file, onClose }) => {
     : [];
 
   return (
-    <div className="metadata-panel flex flex-col w-72 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto">
+    <div className="metadata-panel flex flex-col w-72 flex-shrink-0 border-l border-white/8 bg-black/70 backdrop-blur-md animate-slide-down overflow-y-auto z-40">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 sticky top-0 bg-black/50 backdrop-blur-md z-10">
         <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">File Info</span>
-        <button onClick={onClose} className="lightbox-action-btn invisible pointer-events-none" aria-label="Close info panel">
+        <button onClick={onClose} className="lightbox-action-btn" aria-label="Close info panel">
           <X size={14} />
         </button>
       </div>
