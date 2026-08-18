@@ -64,18 +64,21 @@ const Home = ({ onScanComplete }) => {
     });
   };
 
-  const handleScan = async (pathToScan) => {
+  const handleScan = async (pathToScan, sessionExts) => {
     const path = pathToScan || inputValue.trim();
     if (!path) {
       setLocalError('Please enter a directory path');
       return;
     }
-    if (selectedExts.size === 0) {
+    
+    const extsToUse = sessionExts ? sessionExts : Array.from(selectedExts);
+    
+    if (extsToUse.length === 0) {
       setLocalError('Please select at least one file type to index');
       return;
     }
     setLocalError('');
-    startScanAction(path, Array.from(selectedExts));
+    startScanAction(path, extsToUse);
     if (onScanComplete) onScanComplete();
   };
 
@@ -235,8 +238,8 @@ const Home = ({ onScanComplete }) => {
                              border border-surface-800/60 hover:border-surface-700
                              hover:bg-surface-900/80 transition-all duration-150
                              text-left w-full cursor-pointer"
-                  onClick={() => { setInputValue(session.path); handleScan(session.path); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInputValue(session.path); handleScan(session.path); } }}
+                  onClick={() => { setInputValue(session.path); handleScan(session.path, session.selectedExtensions); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInputValue(session.path); handleScan(session.path, session.selectedExtensions); } }}
                 >
                   <HardDrive size={13} className="text-surface-700 flex-shrink-0" />
 

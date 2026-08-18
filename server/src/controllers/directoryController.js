@@ -151,7 +151,7 @@ const getHistory = async (req, res) => {
   try {
     const db = await getDb();
     const history = await db.all(`
-      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt
+      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt, s.selected_extensions as selectedExtensions
       FROM scans s
       INNER JOIN (
           SELECT path, MAX(started_at) as max_started
@@ -161,7 +161,13 @@ const getHistory = async (req, res) => {
       ORDER BY s.started_at DESC
       LIMIT 10
     `);
-    res.json(history);
+    
+    const parsedHistory = history.map(h => ({
+      ...h,
+      selectedExtensions: h.selectedExtensions ? JSON.parse(h.selectedExtensions) : null
+    }));
+    
+    res.json(parsedHistory);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
