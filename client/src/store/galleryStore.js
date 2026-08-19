@@ -13,6 +13,36 @@ const getStoredTheme = () => {
   try { return localStorage.getItem('gallery-theme') || 'dark'; } catch { return 'dark'; }
 };
 
+/* ─── Recent files helpers (per root path, max 20) ──────────────────────────── */
+const RECENTS_LIMIT = 20;
+
+const getStoredRecents = (rootPath) => {
+  try {
+    const raw = localStorage.getItem(`gallery-recents-${rootPath}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+
+const persistRecents = (rootPath, items) => {
+  try {
+    localStorage.setItem(`gallery-recents-${rootPath}`, JSON.stringify(items));
+  } catch {}
+};
+
+/* ─── Sidebar section collapse helpers ──────────────────────────────────────── */
+const getStoredSidebarSections = () => {
+  try {
+    const raw = localStorage.getItem('gallery-sidebar-sections');
+    return raw ? JSON.parse(raw) : { locations: true, library: true, folders: true };
+  } catch { return { locations: true, library: true, folders: true }; }
+};
+
+const persistSidebarSections = (sections) => {
+  try {
+    localStorage.setItem('gallery-sidebar-sections', JSON.stringify(sections));
+  } catch {}
+};
+
 const useGalleryStore = create((set, get) => ({
   currentPath: '',
   scanId: null,
@@ -47,6 +77,15 @@ const useGalleryStore = create((set, get) => ({
   favorites: new Set(),
   history: [],
   
+  // ── Library & Recents ────────────────────────────────────────────────────────
+  activeLibrarySection: 'all', // 'all' | 'image' | 'video' | 'audio' | 'document' | 'favorites' | 'recents'
+  recentFiles: [],              // populated from localStorage on first scan load
+
+  // ── Sidebar section collapse state ───────────────────────────────────────────
+  sidebarSections: getStoredSidebarSections(), // { locations, library, folders }
+
+
+
   _pollInterval: null,
 
   setCurrentPath: (path) => set({ currentPath: path }),
@@ -64,6 +103,58 @@ const useGalleryStore = create((set, get) => ({
   setSelectedFileType: (ft) => { set({ selectedFileType: ft, page: 1 }); get().loadFiles(true); },
   setSort: (field, order) => { set({ sortField: field, sortOrder: order, page: 1 }); get().loadFiles(true); },
   setShowFavorites: (val) => { set({ showFavorites: val, page: 1 }); get().loadFiles(true); },
+
+  // ── Library section navigation ───────────────────────────────────────────────
+  setActiveLibrarySection: (section) => {
+    const s = get();
+    if (section === 'favorites') {
+      set({ activeLibrarySection: section, showFavorites: true, selectedFileType: '', selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    } else if (section === 'recents') {
+      // Load recents from localStorage for current path
+      const recents = getStoredRecents(s.currentPath);
+      set({ activeLibrarySection: section, recentFiles: recents, showFavorites: false });
+    } else if (section === 'all') {
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    } else {
+      // 'image' | 'video' | 'audio' | 'document'
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: section, selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    }
+  },
+
+  // ── Recent files tracking ────────────────────────────────────────────────────
+  addRecentFile: (file) => {
+    const { currentPath, recentFiles, activeLibrarySection } = get();
+    if (!currentPath || !file?.path) return;
+    // Deduplicate: remove existing entry for same path then prepend
+    const filtered = recentFiles.filter(f => f.path !== file.path);
+    const updated = [file, ...filtered].slice(0, RECENTS_LIMIT);
+    persistRecents(currentPath, updated);
+    // Only update state if we're currently on the Recents section (avoid re-renders)
+    if (activeLibrarySection === 'recents') {
+      set({ recentFiles: updated });
+    } else {
+      // Still persist but keep state in sync silently
+      set({ recentFiles: updated });
+    }
+  },
+
+  clearRecentFiles: () => {
+    const { currentPath } = get();
+    if (currentPath) persistRecents(currentPath, []);
+    set({ recentFiles: [] });
+  },
+
+  // ── Sidebar section toggle (collapse/expand) ─────────────────────────────────
+  toggleSidebarSection: (section) => {
+    set((s) => {
+      const updated = { ...s.sidebarSections, [section]: !s.sidebarSections[section] };
+      persistSidebarSections(updated);
+      return { sidebarSections: updated };
+    });
+  },
 
   toggleFavorite: async (filePath) => {
     // Optimistic update
@@ -179,8 +270,11 @@ const useGalleryStore = create((set, get) => ({
       searchQuery: '', selectedFolder: null, selectedFileType: '',
       selectedFile: null, metadataPanelOpen: false, _pollInterval: null,
       showFavorites: false,
+      activeLibrarySection: 'all',
+      recentFiles: [],
     });
   },
+
 
   startScanAction: async (rootPath, extensions = []) => {
     clearInterval(get()._pollInterval);
@@ -207,6 +301,8 @@ const useGalleryStore = create((set, get) => ({
       showFavorites: false,
       totalFavoritesCount: 0,
       selectedExtensions: extensions,
+      activeLibrarySection: 'all',
+      recentFiles: getStoredRecents(rootPath),
     });
 
     try {
