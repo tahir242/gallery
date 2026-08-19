@@ -79,6 +79,7 @@ const useGalleryStore = create((set, get) => ({
   
   // ── Library & Recents ────────────────────────────────────────────────────────
   activeLibrarySection: 'all', // 'all' | 'image' | 'video' | 'audio' | 'document' | 'favorites' | 'recents'
+  mediaType: '',                // '' | 'image' | 'video' | 'audio' | 'document' — maps to mime_type prefix
   recentFiles: [],              // populated from localStorage on first scan load
 
   // ── Sidebar section collapse state ───────────────────────────────────────────
@@ -99,7 +100,7 @@ const useGalleryStore = create((set, get) => ({
   toggleMetadataPanel: () => set((s) => ({ metadataPanelOpen: !s.metadataPanelOpen })),
 
   setSearchQuery: (q) => { set({ searchQuery: q, page: 1 }); get().loadFiles(true); },
-  setSelectedFolder: (folder) => { set({ selectedFolder: folder, selectedFileType: '', page: 1 }); get().loadFiles(true); },
+  setSelectedFolder: (folder) => { set({ selectedFolder: folder, selectedFileType: '', mediaType: '', page: 1 }); get().loadFiles(true); },
   setSelectedFileType: (ft) => { set({ selectedFileType: ft, page: 1 }); get().loadFiles(true); },
   setSort: (field, order) => { set({ sortField: field, sortOrder: order, page: 1 }); get().loadFiles(true); },
   setShowFavorites: (val) => { set({ showFavorites: val, page: 1 }); get().loadFiles(true); },
@@ -108,18 +109,18 @@ const useGalleryStore = create((set, get) => ({
   setActiveLibrarySection: (section) => {
     const s = get();
     if (section === 'favorites') {
-      set({ activeLibrarySection: section, showFavorites: true, selectedFileType: '', selectedFolder: 'all', page: 1 });
+      set({ activeLibrarySection: section, showFavorites: true, selectedFileType: '', mediaType: '', selectedFolder: 'all', page: 1 });
       get().loadFiles(true);
     } else if (section === 'recents') {
       // Load recents from localStorage for current path
       const recents = getStoredRecents(s.currentPath);
       set({ activeLibrarySection: section, recentFiles: recents, showFavorites: false });
     } else if (section === 'all') {
-      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', selectedFolder: 'all', page: 1 });
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', mediaType: '', selectedFolder: 'all', page: 1 });
       get().loadFiles(true);
     } else {
-      // 'image' | 'video' | 'audio' | 'document'
-      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: section, selectedFolder: 'all', page: 1 });
+      // 'image' | 'video' | 'audio' | 'document' — use mediaType for server mime_type filter
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', mediaType: section, selectedFolder: 'all', page: 1 });
       get().loadFiles(true);
     }
   },
@@ -271,6 +272,7 @@ const useGalleryStore = create((set, get) => ({
       selectedFile: null, metadataPanelOpen: false, _pollInterval: null,
       showFavorites: false,
       activeLibrarySection: 'all',
+      mediaType: '',
       recentFiles: [],
     });
   },
@@ -302,6 +304,7 @@ const useGalleryStore = create((set, get) => ({
       totalFavoritesCount: 0,
       selectedExtensions: extensions,
       activeLibrarySection: 'all',
+      mediaType: '',
       recentFiles: getStoredRecents(rootPath),
     });
 
@@ -409,7 +412,7 @@ const useGalleryStore = create((set, get) => ({
   loadFiles: async (reset = false) => {
     const {
       scanId, currentPath, page, searchQuery, selectedFolder, selectedFileType,
-      isLoadingMore, hasMore, sortField, sortOrder,
+      mediaType, isLoadingMore, hasMore, sortField, sortOrder,
     } = get();
 
     if (!scanId || !currentPath) return;
@@ -422,7 +425,8 @@ const useGalleryStore = create((set, get) => ({
     try {
       const result = await getMedia({
         directoryPath: selectedFolder === 'all' ? currentPath : selectedFolder,
-        ext: selectedFileType,
+        ext: selectedFileType || undefined,
+        mediaType: mediaType || undefined,
         search: searchQuery,
         favoritesOnly: get().showFavorites,
         sortField,

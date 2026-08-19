@@ -129,6 +129,7 @@ const getMediaList = async (req, res) => {
     const {
       directoryPath,
       ext,
+      mediaType,
       search,
       favoritesOnly,
       sortField = 'modified_at',
@@ -157,6 +158,17 @@ const getMediaList = async (req, res) => {
     if (ext) {
       query += ` AND ext = ?`;
       params.push(ext);
+    }
+
+    // mediaType filter: 'image' | 'video' | 'audio' | 'document'
+    if (mediaType) {
+      if (mediaType === 'document') {
+        // Documents are anything that is not image/video/audio
+        query += ` AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'`;
+      } else {
+        query += ` AND mime_type LIKE ?`;
+        params.push(mediaType + '/%');
+      }
     }
 
     if (search) {
