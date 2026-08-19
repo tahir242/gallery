@@ -113,7 +113,31 @@ const MediaGrid = () => {
   const isRecents    = activeLibrarySection === 'recents';
   const displayFiles = isRecents ? recentFiles : files;
 
+  // Extension → category mapping for filtering the file-type dropdown
+  const CATEGORY_EXTS = {
+    image:    new Set(['jpg','jpeg','png','gif','webp','bmp','tiff','tif','svg','heic','heif','avif','ico']),
+    video:    new Set(['mp4','mkv','avi','mov','wmv','flv','webm','m4v','mpg','mpeg','3gp']),
+    audio:    new Set(['mp3','wav','flac','aac','ogg','m4a','wma']),
+    document: new Set(['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv']),
+  };
+
+  // Filter the dropdown options to match the active library category
+  const filteredFileTypes = (() => {
+    const categorySet = CATEGORY_EXTS[activeLibrarySection];
+    if (!categorySet) return availableFileTypes; // 'all', 'favorites', 'recents' → show all
+    return availableFileTypes.filter(({ extension }) => categorySet.has(extension));
+  })();
+
   const observerRef = useRef();
+
+  // Auto-reset the extension dropdown when switching library category
+  // so a stale selection (e.g. 'jpg' while in Videos) doesn't linger
+  useEffect(() => {
+    if (selectedFileType && !filteredFileTypes.some(ft => ft.extension === selectedFileType)) {
+      setSelectedFileType('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLibrarySection]);
 
   const lastElementRef = useCallback((node) => {
     if (isLoadingMore) return;
@@ -166,8 +190,8 @@ const MediaGrid = () => {
         {/* Controls row */}
         <div className="flex items-center gap-2">
 
-          {/* File type filter — hidden in Recents mode */}
-          {!isRecents && availableFileTypes.length > 0 && (
+          {/* File type filter — hidden in Recents mode, scoped to active library category */}
+          {!isRecents && filteredFileTypes.length > 0 && (
             <div className="relative">
               <select
                 value={selectedFileType}
@@ -180,7 +204,7 @@ const MediaGrid = () => {
                            cursor-pointer transition-colors [&>option]:bg-surface-900"
               >
                 <option value="">All types</option>
-                {availableFileTypes.map(({ extension, count }) => (
+                {filteredFileTypes.map(({ extension, count }) => (
                   <option key={extension} value={extension}>
                     {extension.toUpperCase()} ({count})
                   </option>

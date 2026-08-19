@@ -371,7 +371,7 @@ const FolderTree = () => {
       </div>
 
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0">
 
         {/* ════════════════════════════════════════════════════════════════
             SECTION 1 — LOCATIONS
@@ -383,7 +383,7 @@ const FolderTree = () => {
         />
 
         {sidebarSections.locations && (
-          <div className="space-y-0.5 mt-1 mb-3">
+          <div className="space-y-0.5 mb-2">
             {!history || history.length === 0 ? (
               <p className="text-[11px] text-surface-700 px-3 py-1">No recent locations</p>
             ) : (
@@ -400,7 +400,7 @@ const FolderTree = () => {
           </div>
         )}
 
-        <div className="h-px bg-surface-800/50 mx-1 my-3" />
+        <div className="h-px bg-surface-800/40 mx-1 my-1" />
 
         {/* ════════════════════════════════════════════════════════════════
             SECTION 2 — LIBRARY
@@ -412,7 +412,7 @@ const FolderTree = () => {
         />
 
         {sidebarSections.library && (
-          <div className="space-y-0.5 mt-1 mb-3">
+          <div className="space-y-0.5 mb-2">
             {LIBRARY_ITEMS.map(item => {
               let badge = undefined;
               if (item.id === 'favorites') badge = totalFavoritesCount;
@@ -436,7 +436,7 @@ const FolderTree = () => {
           </div>
         )}
 
-        <div className="h-px bg-surface-800/50 mx-1 my-3" />
+        <div className="h-px bg-surface-800/40 mx-1 my-1" />
 
         {/* ════════════════════════════════════════════════════════════════
             SECTION 3 — FOLDERS
@@ -462,7 +462,7 @@ const FolderTree = () => {
         {sidebarSections.folders && (
           <>
             {/* Folder search */}
-            <div className="px-1 mt-2 mb-3 relative">
+            <div className="px-1 mb-2 relative">
               <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-600 pointer-events-none" />
               <input
                 type="text"
