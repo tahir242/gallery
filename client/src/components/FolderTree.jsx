@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   ChevronRight, Folder, FolderOpen, HardDrive, X, Files,
   Loader2, Heart, Search, FileText, Image as ImageIcon, Video,
-  Music, Clock, MapPin, ChevronDown, Trash2,
+  Music, Clock, MapPin, ChevronDown, Trash2, File,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { Tooltip } from './ui/Tooltip';
@@ -70,7 +70,7 @@ const TreeNode = ({
         id={`folder-${nodePath.replace(/[^a-zA-Z0-9]/g, '-')}`}
         onClick={toggle}
         className={`
-          w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm
+          w-full flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-sm
           transition-colors duration-150 group text-left outline-none
           focus-visible:ring-2 focus-visible:ring-accent-500
           ${isSelected
@@ -152,10 +152,10 @@ const TreeNode = ({
    SECTION HEADER — collapsible
    ═══════════════════════════════════════════════════════════════════════════════ */
 const SectionHeader = ({ label, expanded, onToggle, rightSlot }) => (
-  <div className="flex items-center justify-between px-2 mb-1 mt-3 first:mt-0 group/sec">
+  <div className="flex items-center justify-between px-2 mb-1 mt-4 first:mt-0 group/sec">
     <button
       onClick={onToggle}
-      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-surface-600 hover:text-surface-400 transition-colors"
+      className="flex items-center gap-1.5 my-2 text-[11px] font-bold uppercase tracking-widest text-surface-600 hover:text-surface-400 transition-colors"
     >
       <ChevronDown
         size={11}
@@ -170,6 +170,13 @@ const SectionHeader = ({ label, expanded, onToggle, rightSlot }) => (
 /* ═══════════════════════════════════════════════════════════════════════════════
    LIBRARY ITEM — single row in the Library section
    ═══════════════════════════════════════════════════════════════════════════════ */
+const CATEGORY_EXTS = {
+  image:    new Set(['jpg','jpeg','png','gif','webp','bmp','tiff','tif','svg','heic','heif','avif','ico']),
+  video:    new Set(['mp4','mkv','avi','mov','wmv','flv','webm','m4v','mpg','mpeg','3gp']),
+  audio:    new Set(['mp3','wav','flac','aac','ogg','m4a','wma']),
+  document: new Set(['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv']),
+};
+
 const LIBRARY_ITEMS = [
   { id: 'all',      label: 'All Media',  Icon: Files,     color: 'text-accent-400'  },
   { id: 'image',    label: 'Images',     Icon: ImageIcon, color: 'text-emerald-400' },
@@ -187,7 +194,7 @@ const LibraryItem = ({ item, isActive, onClick, badge }) => {
       id={`library-${item.id}`}
       onClick={onClick}
       className={`
-        w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium
+        w-full flex items-center gap-2.5 px-3 py-0.5 rounded-lg text-xs font-medium
         transition-colors duration-100 group
         ${isActive
           ? item.id === 'favorites'
@@ -202,8 +209,11 @@ const LibraryItem = ({ item, isActive, onClick, badge }) => {
         className={`flex-shrink-0 ${isActive ? (item.id === 'favorites' ? 'text-pink-400' : 'text-accent-400') : color} transition-colors`}
       />
       <span className="flex-1 text-left">{label}</span>
-      {badge != null && (
-        <span className="text-[10px] tabular-nums text-surface-600 ml-auto">{badge.toLocaleString()}</span>
+      {badge != null && badge > 0 && (
+        <div className="flex items-center gap-1 ml-auto text-[10px] tabular-nums text-surface-600">
+          <File size={10} className="text-surface-600 opacity-70" />
+          <span>{badge.toLocaleString()}</span>
+        </div>
       )}
     </button>
   );
@@ -218,7 +228,7 @@ const LocationItem = ({ session, isCurrent, onSelect, onDelete }) => (
       id={`location-${session.id}`}
       onClick={() => onSelect(session)}
       className={`
-        w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium
+        w-full flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium
         transition-colors duration-100 pr-7
         ${isCurrent
           ? 'bg-accent-500/12 text-accent-300'
@@ -227,27 +237,43 @@ const LocationItem = ({ session, isCurrent, onSelect, onDelete }) => (
       `}
     >
       <HardDrive size={12} className="flex-shrink-0 text-surface-500" />
-      <div className="flex-1 min-w-0 text-left">
-        <p className="truncate">{session.label || session.path.split(/[/\\]/).filter(Boolean).pop() || session.path}</p>
-        {session.label && (
-          <p className="text-[10px] text-surface-700 font-mono truncate">{session.path}</p>
+      
+      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+        <div className="min-w-0 text-left flex-1">
+          <p className="truncate">{session.label || session.path.split(/[/\\]/).filter(Boolean).pop() || session.path}</p>
+          {session.label && (
+            <p className="text-[10px] text-surface-700 font-mono truncate">{session.path}</p>
+          )}
+        </div>
+        
+        {(session.fileCount > 0 || session.folderCount > 0) && (
+          <div className="flex items-center gap-1.5 text-[9px] text-surface-600 flex-shrink-0 tabular-nums">
+            {session.folderCount > 0 && (
+              <div className="flex items-center gap-0.5" title="Folders Indexed">
+                <Folder size={9} className="opacity-70" />
+                <span>{session.folderCount.toLocaleString()}</span>
+              </div>
+            )}
+            {session.fileCount > 0 && (
+              <div className="flex items-center gap-0.5" title="Files Indexed">
+                <File size={9} className="opacity-70" />
+                <span>{session.fileCount.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
-      {session.fileCount > 0 && (
-        <span className="text-[10px] text-surface-700 flex-shrink-0 tabular-nums ml-1">
-          {session.fileCount.toLocaleString()}
-        </span>
-      )}
     </button>
     <button
       onClick={(e) => { e.stopPropagation(); onDelete(session); }}
-      className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded text-surface-700
+      className="absolute right-1 top-2.5 -translate-y-1/2 p-1 rounded text-surface-700
                  opacity-0 group-hover/loc:opacity-100 hover:text-red-400 hover:bg-red-500/10
                  transition-all duration-100"
       aria-label="Remove location"
     >
       <Trash2 size={11} />
     </button>
+
   </div>
 );
 
@@ -261,7 +287,7 @@ const FolderTree = () => {
     totalFavoritesCount, directoriesDiscovered,
     history, deleteHistory, startScanAction,
     activeLibrarySection, setActiveLibrarySection, recentFiles,
-    sidebarSections, toggleSidebarSection,
+    sidebarSections, toggleSidebarSection, availableFileTypes,
   } = useGalleryStore(useShallow(s => ({
     scanStatus:             s.scanStatus,
     scanCompletedAt:        s.scanCompletedAt,
@@ -282,6 +308,7 @@ const FolderTree = () => {
     recentFiles:            s.recentFiles,
     sidebarSections:        s.sidebarSections,
     toggleSidebarSection:   s.toggleSidebarSection,
+    availableFileTypes:     s.availableFileTypes,
   })));
 
   const { isAtLeastLaptop } = useBreakpoint();
@@ -292,6 +319,18 @@ const FolderTree = () => {
   const [folderSearch, setFolderSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching]     = useState(false);
+
+  // Calculate counts for library sections based on availableFileTypes
+  const libraryCounts = useMemo(() => {
+    const counts = { image: 0, video: 0, audio: 0, document: 0 };
+    availableFileTypes.forEach(({ extension, count }) => {
+      if (CATEGORY_EXTS.image.has(extension)) counts.image += count;
+      else if (CATEGORY_EXTS.video.has(extension)) counts.video += count;
+      else if (CATEGORY_EXTS.audio.has(extension)) counts.audio += count;
+      else if (CATEGORY_EXTS.document.has(extension)) counts.document += count;
+    });
+    return counts;
+  }, [availableFileTypes]);
 
   /* ── Folder search debounce ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -356,8 +395,8 @@ const FolderTree = () => {
     `}>
 
       {/* ── Sidebar header ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800/60 flex-shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-surface-800/60 flex-shrink-0">
+        <div className="flex items-center gap-2 py-3">
           <MapPin size={12} className="text-surface-600" />
           <p className="text-[11px] text-surface-500 font-semibold uppercase tracking-widest truncate max-w-[140px]" title={currentPath}>
             {currentPath.split(/[/\\]/).filter(Boolean).pop() || currentPath}
@@ -383,9 +422,9 @@ const FolderTree = () => {
         />
 
         {sidebarSections.locations && (
-          <div className="space-y-0.5 mb-2">
+          <div className="space-y-0.5 mb-1">
             {!history || history.length === 0 ? (
-              <p className="text-[11px] text-surface-700 px-3 py-1">No recent locations</p>
+              <p className="text-[10px] text-surface-700 px-3 py-1">No recent locations</p>
             ) : (
               history.map(session => (
                 <LocationItem
@@ -400,7 +439,7 @@ const FolderTree = () => {
           </div>
         )}
 
-        <div className="h-px bg-surface-800/40 mx-1 my-1" />
+        <div className="h-px bg-surface-800/40 mx-2 my-4" />
 
         {/* ════════════════════════════════════════════════════════════════
             SECTION 2 — LIBRARY
@@ -416,8 +455,9 @@ const FolderTree = () => {
             {LIBRARY_ITEMS.map(item => {
               let badge = undefined;
               if (item.id === 'favorites') badge = totalFavoritesCount;
-              if (item.id === 'all')       badge = totalFilesCount;
-              if (item.id === 'recents')   badge = recentFiles.length || undefined;
+              else if (item.id === 'all')       badge = totalFilesCount;
+              else if (item.id === 'recents')   badge = recentFiles.length || undefined;
+              else if (libraryCounts[item.id] !== undefined) badge = libraryCounts[item.id];
 
               return (
                 <LibraryItem
@@ -469,14 +509,14 @@ const FolderTree = () => {
                 placeholder="Search folders…"
                 value={folderSearch}
                 onChange={e => setFolderSearch(e.target.value)}
-                className="w-full bg-surface-900 border border-surface-800 rounded-md py-1.5 pl-7 pr-3
+                className="w-full bg-surface-900 border border-surface-800 rounded-md py-2 pl-7 pr-3
                            text-xs text-surface-200 focus:outline-none focus:border-surface-700
                            placeholder:text-surface-600"
               />
             </div>
 
             {/* Tree */}
-            <div className="min-w-0 flex flex-col space-y-0.5 pb-4">
+            <div className="min-w-0 flex flex-col space-y-0.5 py-4">
               {folderSearch.trim() ? (
                 <div className="space-y-0.5">
                   {searching ? (

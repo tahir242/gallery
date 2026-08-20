@@ -168,7 +168,7 @@ const getHistory = async (req, res) => {
   try {
     const db = await getDb();
     const history = await db.all(`
-      SELECT s.id, s.path, s.files_indexed as fileCount, s.status, s.completed_at as scannedAt, s.selected_extensions as selectedExtensions
+      SELECT s.id, s.path, s.files_indexed as fileCount, s.directories_discovered as folderCount, s.status, s.completed_at as scannedAt, s.selected_extensions as selectedExtensions
       FROM scans s
       INNER JOIN (
           SELECT path, MAX(started_at) as max_started
