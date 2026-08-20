@@ -410,8 +410,8 @@ const FolderTree = () => {
         )}
       </div>
 
-      {/* ── Scrollable body ───────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0">
+      {/* ── Fixed Body ────────────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-2 pt-2 space-y-0">
 
         {/* ════════════════════════════════════════════════════════════════
             SECTION 1 — LOCATIONS
@@ -521,68 +521,69 @@ const FolderTree = () => {
         />
 
         {sidebarSections.folders && (
-          <>
-            {/* Folder search */}
-            <div className="px-1 mb-2 relative">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-600 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search folders…"
-                value={folderSearch}
-                onChange={e => setFolderSearch(e.target.value)}
-                className="w-full bg-surface-900 border border-surface-800 rounded-md py-2 pl-7 pr-3
-                           text-xs text-surface-200 focus:outline-none focus:border-surface-700
-                           placeholder:text-surface-600"
-              />
-            </div>
-
-            {/* Tree */}
-            <div className="min-w-0 flex flex-col space-y-0.5 py-4">
-              {folderSearch.trim() ? (
-                <div className="space-y-0.5">
-                  {searching ? (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 size={16} className="animate-spin text-surface-600" />
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    searchResults.map(dir => (
-                      <TreeNode
-                        key={dir.path}
-                        path={dir.path}
-                        name={dir.name}
-                        hasChildren={dir.hasChildren}
-                        fileCount={dir.fileCount}
-                        subdirCount={dir.subdirCount}
-                        depth={0}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-xs text-surface-600 px-2 mt-2">No matching folders</p>
-                  )}
-                </div>
-              ) : loadingRoots ? (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 size={16} className="animate-spin text-surface-600" />
-                </div>
-              ) : rootDirs.length > 0 ? (
-                <TreeNode
-                  path={currentPath}
-                  name={currentPath.split(/[/\\]/).filter(Boolean).pop() || currentPath}
-                  hasChildren={true}
-                  depth={0}
-                  defaultExpanded={true}
-                  isRootNode={true}
-                />
-              ) : (
-                <p className="text-xs text-surface-600 px-2 mt-2">
-                  {scanStatus === 'scanning' ? 'Discovering folders…' : 'No subfolders found'}
-                </p>
-              )}
-            </div>
-          </>
+          <div className="px-1 mb-2 mt-2 relative">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-600 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search folders…"
+              value={folderSearch}
+              onChange={e => setFolderSearch(e.target.value)}
+              className="w-full bg-surface-900 border border-surface-800 rounded-md py-2 pl-7 pr-3
+                         text-xs text-surface-200 focus:outline-none focus:border-surface-700
+                         placeholder:text-surface-600"
+            />
+          </div>
         )}
-
       </div>
+
+      {/* ── Scrollable Folders Tree ───────────────────────────────────────── */}
+      {sidebarSections.folders && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4 mt-2 min-h-0">
+          <div className="min-w-0 flex flex-col space-y-0.5">
+            {folderSearch.trim() ? (
+              <div className="space-y-0.5">
+                {searching ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 size={16} className="animate-spin text-surface-600" />
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map(dir => (
+                    <TreeNode
+                      key={dir.path}
+                      path={dir.path}
+                      name={dir.name}
+                      hasChildren={dir.hasChildren}
+                      fileCount={dir.fileCount}
+                      subdirCount={dir.subdirCount}
+                      depth={0}
+                    />
+                  ))
+                ) : (
+                  <p className="text-xs text-surface-600 px-2 mt-2">No matching folders</p>
+                )}
+              </div>
+            ) : loadingRoots ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 size={16} className="animate-spin text-surface-600" />
+              </div>
+            ) : rootDirs.length > 0 ? (
+              <TreeNode
+                path={currentPath}
+                name={currentPath.split(/[/\\]/).filter(Boolean).pop() || currentPath}
+                hasChildren={true}
+                depth={0}
+                defaultExpanded={true}
+                isRootNode={true}
+              />
+            ) : (
+              <p className="text-xs text-surface-600 px-2 mt-2">
+                {scanStatus === 'scanning' ? 'Discovering folders…' : 'No subfolders found'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
     </aside>
   );
 };
