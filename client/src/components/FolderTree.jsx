@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   ChevronRight, Folder, FolderOpen, HardDrive, X, Files,
   Loader2, Heart, Search, FileText, Image as ImageIcon, Video,
-  Music, Clock, MapPin, ChevronDown, Trash2, File,
+  Music, Clock, MapPin, ChevronDown, ChevronUp, Trash2, File,
 } from 'lucide-react';
 import useGalleryStore from '../store/galleryStore';
 import { Tooltip } from './ui/Tooltip';
@@ -319,6 +319,7 @@ const FolderTree = () => {
   const [folderSearch, setFolderSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching]     = useState(false);
+  const [showAllLocations, setShowAllLocations] = useState(false);
 
   // Calculate counts for library sections based on availableFileTypes
   const libraryCounts = useMemo(() => {
@@ -426,15 +427,35 @@ const FolderTree = () => {
             {!history || history.length === 0 ? (
               <p className="text-[10px] text-surface-700 px-3 py-1">No recent locations</p>
             ) : (
-              history.map(session => (
-                <LocationItem
-                  key={session.id}
-                  session={session}
-                  isCurrent={currentPath === session.path}
-                  onSelect={handleSelectLocation}
-                  onDelete={handleDeleteLocation}
-                />
-              ))
+              <>
+                {(showAllLocations ? history : history.slice(0, 3)).map(session => (
+                  <LocationItem
+                    key={session.id}
+                    session={session}
+                    isCurrent={currentPath === session.path}
+                    onSelect={handleSelectLocation}
+                    onDelete={handleDeleteLocation}
+                  />
+                ))}
+                {history.length > 3 && (
+                  <button
+                    onClick={() => setShowAllLocations(!showAllLocations)}
+                    className="w-full flex items-center justify-center gap-1.5 py-1 mt-1 rounded-md text-[10px] font-medium text-surface-500 hover:text-surface-300 hover:bg-surface-800/60 transition-colors"
+                  >
+                    {showAllLocations ? (
+                      <>
+                        <ChevronUp size={12} />
+                        <span>See Less</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} />
+                        <span>See More ({history.length - 3})</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
