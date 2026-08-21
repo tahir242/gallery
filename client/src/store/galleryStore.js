@@ -330,22 +330,25 @@ const useGalleryStore = create((set, get) => ({
             directoriesDiscovered: statusRes.directories_discovered,
           });
 
+          // Load the first batch of results as soon as files start appearing
           if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
             if (get().files.length === 0) {
               get().loadFiles(true);
             }
           }
 
-          if (statusRes.status === 'completed' || statusRes.status === 'error') {
+          // Stop polling on any terminal state: completed, error, or cancelled
+          if (['completed', 'error', 'cancelled'].includes(statusRes.status)) {
             clearInterval(get()._pollInterval);
-            set({ _pollInterval: null }); // explicitly clear
+            set({ _pollInterval: null });
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
-            } else {
+            } else if (statusRes.status === 'completed') {
               set({ scanCompletedAt: Date.now() });
+              get().loadFiles(true);
+              get().fetchFavoriteCount();
             }
-            get().loadFiles(true);
-            get().fetchFavoriteCount();
+            // 'cancelled' means the user switched location — no action needed here
           }
         } catch (e) {
           console.error("Polling error", e);
@@ -365,10 +368,14 @@ const useGalleryStore = create((set, get) => ({
       set({ selectedExtensions: extensions });
       await apiUpdateScanExtensions(scanId, extensions);
       
-      // Start polling so we catch the new files being indexed
+      // Clear old interval and reset state for the fresh scan
       clearInterval(get()._pollInterval);
-      set({ scanStatus: 'scanning' });
+      set({ scanStatus: 'scanning', files: [], page: 1, hasMore: false, totalMatches: 0 });
       get().loadFiles(true);
+
+      // Track how many files were indexed at the last loadFiles call so we
+      // only reload when meaningful new data has arrived (not every second).
+      let lastLoadedCount = 0;
 
       const interval = setInterval(async () => {
         if (get()._pollInterval !== interval) return;
@@ -383,20 +390,24 @@ const useGalleryStore = create((set, get) => ({
             directoriesDiscovered: statusRes.directories_discovered,
           });
 
-          if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
-             get().loadFiles(true);
+          // Throttle: only reload grid when 100+ new files indexed since last load
+          const newCount = statusRes.files_indexed || 0;
+          if (statusRes.status === 'scanning' && newCount - lastLoadedCount >= 100) {
+            lastLoadedCount = newCount;
+            get().loadFiles(true);
           }
 
-          if (statusRes.status === 'completed' || statusRes.status === 'error') {
+          // Stop polling on any terminal state
+          if (['completed', 'error', 'cancelled'].includes(statusRes.status)) {
             clearInterval(get()._pollInterval);
             set({ _pollInterval: null });
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
-            } else {
+            } else if (statusRes.status === 'completed') {
               set({ scanCompletedAt: Date.now() });
+              get().loadFiles(true);
+              get().fetchFavoriteCount();
             }
-            get().loadFiles(true);
-            get().fetchFavoriteCount();
           }
         } catch (e) {
           console.error("Polling error", e);

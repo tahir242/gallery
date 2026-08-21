@@ -5,6 +5,37 @@ const { isMediaFile, getMimeType } = require('./mediaTypes');
 
 const BATCH_SIZE = 2000;
 
+/* ─── Cancellation token registry ───────────────────────────────────────────────
+   cancelledScans holds scanIds that have been requested to stop.
+   runScan checks this set at the top of every processDir call so cancellation
+   takes effect within at most one directory's worth of work (~milliseconds on
+   typical folders). The token is deleted when the scan finishes or is cancelled.
+─────────────────────────────────────────────────────────────────────────────── */
+const cancelledScans = new Set();
+
+/**
+ * Request cancellation of a running scan.
+ * Marks the scan as 'cancelled' in the DB and adds its id to the token set.
+ * Safe to call even if the scan has already finished.
+ *
+ * @param {number} scanId
+ */
+const cancelScan = async (scanId) => {
+  if (!scanId) return;
+  cancelledScans.add(scanId);
+  try {
+    const db = await getDb();
+    await db.run(
+      `UPDATE scans
+       SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status IN ('pending', 'scanning')`,
+      [scanId]
+    );
+  } catch (err) {
+    console.error('cancelScan db error:', err.message);
+  }
+};
+
 const runScan = async (scanId, rootPath, selectedExtensions = null) => {
   const db = await getDb();
   let dirsDiscovered = 0;
@@ -15,6 +46,8 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
 
   let queueMedia = [];
   let queueDirs = [];
+
+  const isCancelled = () => cancelledScans.has(scanId);
 
   const updateProgress = async (force = false) => {
     const now = Date.now();
@@ -68,7 +101,6 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
     } catch (err) {
       await db.run('ROLLBACK');
       console.error('Batch flush failed:', err);
-      // Batch failure means we missed some counts, but we don't crash
       filesFailed += queueMedia.length;
       queueMedia = [];
       queueDirs = [];
@@ -80,6 +112,9 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
   };
 
   const processDir = async (dirPath, parentPath) => {
+    // ── Cancellation check — bail out immediately if cancelled ──────────────
+    if (isCancelled()) return;
+
     try {
       const dirName = path.basename(dirPath) || dirPath;
       
@@ -90,11 +125,18 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
         await flushBatch();
       }
 
+      if (isCancelled()) return;
+
       const dir = await fsPromises.opendir(dirPath);
       const subdirs = [];
       const mediaFiles = [];
 
       for await (const entry of dir) {
+        if (isCancelled()) {
+          // Close the directory handle gracefully
+          await dir.close().catch(() => {});
+          return;
+        }
         if (entry.isDirectory()) {
           subdirs.push(path.join(dirPath, entry.name));
         } else if (entry.isFile()) {
@@ -107,6 +149,8 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
           }
         }
       }
+
+      if (isCancelled()) return;
       
       // Parallel stat for all media files in this directory
       if (mediaFiles.length > 0) {
@@ -140,14 +184,15 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
         }
       }
 
-      // Process subdirectories
+      // Process subdirectories — stop early if cancelled
       for (const subdir of subdirs) {
+        if (isCancelled()) return;
         await processDir(subdir, dirPath);
       }
       
-      // Yield periodically if this is an empty dir taking long to traverse
+      // Yield periodically to keep the event loop responsive
       if (dirsDiscovered % 100 === 0) {
-         await new Promise(r => setImmediate(r));
+        await new Promise(r => setImmediate(r));
       }
 
     } catch (err) {
@@ -158,19 +203,27 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
   try {
     await db.run(`UPDATE scans SET status = 'scanning' WHERE id = ?`, [scanId]);
     await processDir(rootPath, null);
+
+    // ── Cancelled — stop cleanly, do not mark as completed ─────────────────
+    if (isCancelled()) {
+      cancelledScans.delete(scanId);
+      return;
+    }
     
     // Final flush
     await flushBatch();
 
-    // Purge deleted files
-    const rootLike = rootPath + '%';
+    // Purge files/dirs that belong to this root but were not seen in this scan
+    // (i.e. they were deleted from disk since the last scan)
+    const sep = rootPath.includes('\\') ? '\\' : '/';
+    const rootLike = rootPath + sep + '%';
     await db.run(
-      `DELETE FROM media WHERE path LIKE ? AND (last_scan_id != ? OR last_scan_id IS NULL)`,
-      [rootLike, scanId]
+      `DELETE FROM media WHERE (path = ? OR path LIKE ?) AND (last_scan_id != ? OR last_scan_id IS NULL)`,
+      [rootPath, rootLike, scanId]
     );
     await db.run(
-      `DELETE FROM directories WHERE path LIKE ? AND (last_scan_id != ? OR last_scan_id IS NULL)`,
-      [rootLike, scanId]
+      `DELETE FROM directories WHERE (path = ? OR path LIKE ?) AND (last_scan_id != ? OR last_scan_id IS NULL)`,
+      [rootPath, rootLike, scanId]
     );
 
     await updateProgress(true);
@@ -180,12 +233,17 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
     );
   } catch (err) {
     console.error('Scan failed:', err);
-    await updateProgress(true);
-    await db.run(
-      `UPDATE scans SET status = 'error', completed_at = CURRENT_TIMESTAMP, error_message = ? WHERE id = ?`,
-      [err.message, scanId]
-    );
+    if (!isCancelled()) {
+      await updateProgress(true);
+      await db.run(
+        `UPDATE scans SET status = 'error', completed_at = CURRENT_TIMESTAMP, error_message = ? WHERE id = ?`,
+        [err.message, scanId]
+      );
+    }
+  } finally {
+    // Always clean up cancellation token
+    cancelledScans.delete(scanId);
   }
 };
 
-module.exports = { runScan };
+module.exports = { runScan, cancelScan };
