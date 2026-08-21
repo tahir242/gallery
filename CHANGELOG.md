@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Redesigned Left Sidebar**: Completely restructured the sidebar into three distinct, independently collapsible sections — **Locations**, **Library**, and **Folders** — for a cleaner, more intuitive navigation experience. Collapse state for each section is persisted in `localStorage`.
+- **Locations Section**: Displays the full history of previously scanned directories. Click any entry to instantly re-scan that location with its original file-type selections. Each entry shows the path, file count, and a trash icon to remove it from history.
+- **Library Section**: Quick-access navigation panel with seven shortcut rows: **All Media**, **Images**, **Videos**, **Audios**, **Documents**, **Favorites** (with live count badge), and **Recents** (with live count badge). Selecting any row instantly filters the media grid.
+- **Recents Tracking**: Recently opened files are now tracked client-side. Opening a file in the LightBox automatically records it. Up to **20** recently viewed files are persisted in `localStorage`, keyed per scanned location, and shown in the **Recents** view.
+- **Category-Scoped File-Type Dropdown**: When a Library category (Images, Videos, etc.) is active, the file-extension dropdown in the toolbar automatically filters to show only relevant extensions (e.g., `.jpg`, `.png` when viewing Images). The dropdown auto-resets when switching categories.
 - **Expandable Search Results**: Converted static directory search results into fully interactive tree nodes. Users can now click the expansion arrow on any searched folder to dynamically load, indent, and navigate its subdirectories directly within the search pane without losing their search context.
 - **Native Document Previews**: Replaced generic fallback icons with full-featured native viewers for PDFs, Word Documents (`.docx`), Excel Spreadsheets (`.xlsx`, `.csv`), and Text files (`.txt`).
 - **Audio Playback UI**: Added a slick custom audio player with waveform-inspired UI for `.mp3` and `.wav` files inside the LightBox.
@@ -20,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Floating Controls**: Moved all viewer-specific controls (PDF zoom/page inputs, spreadsheet tab selectors, text line counts) into floating pill bars pinned to the bottom of the screen.
 
 ### Fixed
+- Fixed sidebar layout breakage on ultra-wide screens by enforcing max-width constraints on the sidebar container and ensuring flex-shrink properties are applied to the folder tree view.
+- Fixed Images, Videos, Audios, and Documents Library sections showing no media. The API previously only supported filtering by exact file extension (`ext=jpg`); a new `mediaType` query parameter was added to the `/api/media/list` endpoint that filters by `mime_type LIKE 'image/%'` etc., enabling correct category-level filtering without any extension guesswork.
 - Fixed an issue where clicking a location from the "Recent Scans" list would ignore the originally saved file extensions and use the default selections. The scanner now correctly restores and applies the exact file types used during the initial scan.
 - Fixed a bug where opening a specific scanned location or clicking the "Favorites" tab would incorrectly display media and favorites from *all* indexed locations. All media lists, file type totals, and favorite counters are now strictly scoped to the active root directory.
 - Fixed missing file and subfolder counts in the directory search results by updating the backend `searchDirectories` API to properly compute and return these metrics.

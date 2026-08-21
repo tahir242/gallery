@@ -13,6 +13,36 @@ const getStoredTheme = () => {
   try { return localStorage.getItem('gallery-theme') || 'dark'; } catch { return 'dark'; }
 };
 
+/* ─── Recent files helpers (per root path, max 20) ──────────────────────────── */
+const RECENTS_LIMIT = 20;
+
+const getStoredRecents = (rootPath) => {
+  try {
+    const raw = localStorage.getItem(`gallery-recents-${rootPath}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+
+const persistRecents = (rootPath, items) => {
+  try {
+    localStorage.setItem(`gallery-recents-${rootPath}`, JSON.stringify(items));
+  } catch {}
+};
+
+/* ─── Sidebar section collapse helpers ──────────────────────────────────────── */
+const getStoredSidebarSections = () => {
+  try {
+    const raw = localStorage.getItem('gallery-sidebar-sections');
+    return raw ? JSON.parse(raw) : { locations: true, library: true, folders: true };
+  } catch { return { locations: true, library: true, folders: true }; }
+};
+
+const persistSidebarSections = (sections) => {
+  try {
+    localStorage.setItem('gallery-sidebar-sections', JSON.stringify(sections));
+  } catch {}
+};
+
 const useGalleryStore = create((set, get) => ({
   currentPath: '',
   scanId: null,
@@ -47,6 +77,16 @@ const useGalleryStore = create((set, get) => ({
   favorites: new Set(),
   history: [],
   
+  // ── Library & Recents ────────────────────────────────────────────────────────
+  activeLibrarySection: 'all', // 'all' | 'image' | 'video' | 'audio' | 'document' | 'favorites' | 'recents'
+  mediaType: '',                // '' | 'image' | 'video' | 'audio' | 'document' — maps to mime_type prefix
+  recentFiles: [],              // populated from localStorage on first scan load
+
+  // ── Sidebar section collapse state ───────────────────────────────────────────
+  sidebarSections: getStoredSidebarSections(), // { locations, library, folders }
+
+
+
   _pollInterval: null,
 
   setCurrentPath: (path) => set({ currentPath: path }),
@@ -60,10 +100,62 @@ const useGalleryStore = create((set, get) => ({
   toggleMetadataPanel: () => set((s) => ({ metadataPanelOpen: !s.metadataPanelOpen })),
 
   setSearchQuery: (q) => { set({ searchQuery: q, page: 1 }); get().loadFiles(true); },
-  setSelectedFolder: (folder) => { set({ selectedFolder: folder, selectedFileType: '', page: 1 }); get().loadFiles(true); },
+  setSelectedFolder: (folder) => { set({ selectedFolder: folder, selectedFileType: '', mediaType: '', page: 1 }); get().loadFiles(true); },
   setSelectedFileType: (ft) => { set({ selectedFileType: ft, page: 1 }); get().loadFiles(true); },
   setSort: (field, order) => { set({ sortField: field, sortOrder: order, page: 1 }); get().loadFiles(true); },
   setShowFavorites: (val) => { set({ showFavorites: val, page: 1 }); get().loadFiles(true); },
+
+  // ── Library section navigation ───────────────────────────────────────────────
+  setActiveLibrarySection: (section) => {
+    const s = get();
+    if (section === 'favorites') {
+      set({ activeLibrarySection: section, showFavorites: true, selectedFileType: '', mediaType: '', selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    } else if (section === 'recents') {
+      // Load recents from localStorage for current path
+      const recents = getStoredRecents(s.currentPath);
+      set({ activeLibrarySection: section, recentFiles: recents, showFavorites: false });
+    } else if (section === 'all') {
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', mediaType: '', selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    } else {
+      // 'image' | 'video' | 'audio' | 'document' — use mediaType for server mime_type filter
+      set({ activeLibrarySection: section, showFavorites: false, selectedFileType: '', mediaType: section, selectedFolder: 'all', page: 1 });
+      get().loadFiles(true);
+    }
+  },
+
+  // ── Recent files tracking ────────────────────────────────────────────────────
+  addRecentFile: (file) => {
+    const { currentPath, recentFiles, activeLibrarySection } = get();
+    if (!currentPath || !file?.path) return;
+    // Deduplicate: remove existing entry for same path then prepend
+    const filtered = recentFiles.filter(f => f.path !== file.path);
+    const updated = [file, ...filtered].slice(0, RECENTS_LIMIT);
+    persistRecents(currentPath, updated);
+    // Only update state if we're currently on the Recents section (avoid re-renders)
+    if (activeLibrarySection === 'recents') {
+      set({ recentFiles: updated });
+    } else {
+      // Still persist but keep state in sync silently
+      set({ recentFiles: updated });
+    }
+  },
+
+  clearRecentFiles: () => {
+    const { currentPath } = get();
+    if (currentPath) persistRecents(currentPath, []);
+    set({ recentFiles: [] });
+  },
+
+  // ── Sidebar section toggle (collapse/expand) ─────────────────────────────────
+  toggleSidebarSection: (section) => {
+    set((s) => {
+      const updated = { ...s.sidebarSections, [section]: !s.sidebarSections[section] };
+      persistSidebarSections(updated);
+      return { sidebarSections: updated };
+    });
+  },
 
   toggleFavorite: async (filePath) => {
     // Optimistic update
@@ -179,8 +271,12 @@ const useGalleryStore = create((set, get) => ({
       searchQuery: '', selectedFolder: null, selectedFileType: '',
       selectedFile: null, metadataPanelOpen: false, _pollInterval: null,
       showFavorites: false,
+      activeLibrarySection: 'all',
+      mediaType: '',
+      recentFiles: [],
     });
   },
+
 
   startScanAction: async (rootPath, extensions = []) => {
     clearInterval(get()._pollInterval);
@@ -207,6 +303,9 @@ const useGalleryStore = create((set, get) => ({
       showFavorites: false,
       totalFavoritesCount: 0,
       selectedExtensions: extensions,
+      activeLibrarySection: 'all',
+      mediaType: '',
+      recentFiles: getStoredRecents(rootPath),
     });
 
     try {
@@ -231,22 +330,25 @@ const useGalleryStore = create((set, get) => ({
             directoriesDiscovered: statusRes.directories_discovered,
           });
 
+          // Load the first batch of results as soon as files start appearing
           if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
             if (get().files.length === 0) {
               get().loadFiles(true);
             }
           }
 
-          if (statusRes.status === 'completed' || statusRes.status === 'error') {
+          // Stop polling on any terminal state: completed, error, or cancelled
+          if (['completed', 'error', 'cancelled'].includes(statusRes.status)) {
             clearInterval(get()._pollInterval);
-            set({ _pollInterval: null }); // explicitly clear
+            set({ _pollInterval: null });
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
-            } else {
+            } else if (statusRes.status === 'completed') {
               set({ scanCompletedAt: Date.now() });
+              get().loadFiles(true);
+              get().fetchFavoriteCount();
             }
-            get().loadFiles(true);
-            get().fetchFavoriteCount();
+            // 'cancelled' means the user switched location — no action needed here
           }
         } catch (e) {
           console.error("Polling error", e);
@@ -266,10 +368,14 @@ const useGalleryStore = create((set, get) => ({
       set({ selectedExtensions: extensions });
       await apiUpdateScanExtensions(scanId, extensions);
       
-      // Start polling so we catch the new files being indexed
+      // Clear old interval and reset state for the fresh scan
       clearInterval(get()._pollInterval);
-      set({ scanStatus: 'scanning' });
+      set({ scanStatus: 'scanning', files: [], page: 1, hasMore: false, totalMatches: 0 });
       get().loadFiles(true);
+
+      // Track how many files were indexed at the last loadFiles call so we
+      // only reload when meaningful new data has arrived (not every second).
+      let lastLoadedCount = 0;
 
       const interval = setInterval(async () => {
         if (get()._pollInterval !== interval) return;
@@ -284,20 +390,24 @@ const useGalleryStore = create((set, get) => ({
             directoriesDiscovered: statusRes.directories_discovered,
           });
 
-          if (statusRes.status === 'scanning' && statusRes.files_indexed > 0) {
-             get().loadFiles(true);
+          // Throttle: only reload grid when 100+ new files indexed since last load
+          const newCount = statusRes.files_indexed || 0;
+          if (statusRes.status === 'scanning' && newCount - lastLoadedCount >= 100) {
+            lastLoadedCount = newCount;
+            get().loadFiles(true);
           }
 
-          if (statusRes.status === 'completed' || statusRes.status === 'error') {
+          // Stop polling on any terminal state
+          if (['completed', 'error', 'cancelled'].includes(statusRes.status)) {
             clearInterval(get()._pollInterval);
             set({ _pollInterval: null });
             if (statusRes.status === 'error') {
               set({ scanError: statusRes.error_message });
-            } else {
+            } else if (statusRes.status === 'completed') {
               set({ scanCompletedAt: Date.now() });
+              get().loadFiles(true);
+              get().fetchFavoriteCount();
             }
-            get().loadFiles(true);
-            get().fetchFavoriteCount();
           }
         } catch (e) {
           console.error("Polling error", e);
@@ -313,7 +423,7 @@ const useGalleryStore = create((set, get) => ({
   loadFiles: async (reset = false) => {
     const {
       scanId, currentPath, page, searchQuery, selectedFolder, selectedFileType,
-      isLoadingMore, hasMore, sortField, sortOrder,
+      mediaType, isLoadingMore, hasMore, sortField, sortOrder,
     } = get();
 
     if (!scanId || !currentPath) return;
@@ -326,7 +436,8 @@ const useGalleryStore = create((set, get) => ({
     try {
       const result = await getMedia({
         directoryPath: selectedFolder === 'all' ? currentPath : selectedFolder,
-        ext: selectedFileType,
+        ext: selectedFileType || undefined,
+        mediaType: mediaType || undefined,
         search: searchQuery,
         favoritesOnly: get().showFavorites,
         sortField,

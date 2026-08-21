@@ -40,9 +40,12 @@ const initSchema = async (db) => {
       FOREIGN KEY(last_scan_id) REFERENCES scans(id) ON DELETE SET NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_directories_parent ON directories(parent_path);
-    CREATE INDEX IF NOT EXISTS idx_media_directory ON media(directory_path);
-    CREATE INDEX IF NOT EXISTS idx_media_ext ON media(ext);
+    CREATE INDEX IF NOT EXISTS idx_directories_parent   ON directories(parent_path);
+    CREATE INDEX IF NOT EXISTS idx_media_directory       ON media(directory_path);
+    CREATE INDEX IF NOT EXISTS idx_media_ext             ON media(ext);
+    CREATE INDEX IF NOT EXISTS idx_media_modified        ON media(modified_at);
+    CREATE INDEX IF NOT EXISTS idx_media_fav             ON media(is_favorite);
+    CREATE INDEX IF NOT EXISTS idx_scans_path_status     ON scans(path, status);
   `);
   
   try {

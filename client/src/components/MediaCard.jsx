@@ -60,7 +60,7 @@ const FavBtn = ({ isFav, onFav }) => (
 );
 
 /* ── MasonryCard — natural aspect ratio, no card border ────────────────────── */
-export const MasonryCard = memo(({ file }) => {
+export const MasonryCard = memo(({ file, eagerLoad = false }) => {
   const setSelectedFile = useGalleryStore(s => s.setSelectedFile);
   const toggleFavorite = useGalleryStore(s => s.toggleFavorite);
   const isFav = useGalleryStore(s => s.favorites.has(file.path));
@@ -99,7 +99,10 @@ export const MasonryCard = memo(({ file }) => {
             className={`tile-img rounded-[8px] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
-            loading="lazy"
+            // eagerLoad: disable lazy loading so all masonry columns load in
+            // parallel when items are rendered, eliminating the DOM-order delay
+            // where column 0 loads before column 1, column 1 before column 2, etc.
+            loading={eagerLoad ? 'eager' : 'lazy'}
             draggable={false}
           />
           <div className="tile-overlay rounded-[8px]" />

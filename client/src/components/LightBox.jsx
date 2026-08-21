@@ -138,6 +138,7 @@ const LightBox = () => {
     selectedFile, setSelectedFile, files, 
     toggleFavorite, favorites,
     metadataPanelOpen, toggleMetadataPanel,
+    addRecentFile,
   } = useGalleryStore(useShallow(s => ({
     selectedFile: s.selectedFile,
     setSelectedFile: s.setSelectedFile,
@@ -145,7 +146,8 @@ const LightBox = () => {
     toggleFavorite: s.toggleFavorite,
     favorites: s.favorites,
     metadataPanelOpen: s.metadataPanelOpen,
-    toggleMetadataPanel: s.toggleMetadataPanel
+    toggleMetadataPanel: s.toggleMetadataPanel,
+    addRecentFile: s.addRecentFile,
   })));
 
   const [zoom, setZoom] = useState(1);
@@ -153,6 +155,15 @@ const LightBox = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [mediaError, setMediaError] = useState(false);
+
+  // Track recently opened files
+  useEffect(() => {
+    if (selectedFile) {
+      addRecentFile(selectedFile);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFile?.path]);
+
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
