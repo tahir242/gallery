@@ -35,7 +35,9 @@ const VideoThumbnail = ({ src, name }) => {
           }
         }
       },
-      { rootMargin: '150px' } // pre-load slightly before entering view
+      // 600px pre-load distance: large enough that videos in all masonry columns
+      // have time to load before the user scrolls to them.
+      { rootMargin: '600px' }
     );
 
     observer.observe(el);

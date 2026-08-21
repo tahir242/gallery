@@ -70,7 +70,7 @@ const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
   </Tooltip>
 );
 
-/* ─── Masonry breakpoints (restored to original) ────────────────────────────── */
+/* ─── Masonry breakpoints ───────────────────────────────────────────────────── */
 const breakpointColumnsObj = {
   default: 7,
   1920: 6,
@@ -81,30 +81,65 @@ const breakpointColumnsObj = {
 };
 
 /* ─── Masonry View ──────────────────────────────────────────────────────────── */
-// Uses react-masonry-css so items stack naturally with variable heights.
-// Memory is kept in check by:
-//   • images: browser native loading="lazy" in MasonryCard/MediaCard
-//   • videos: IntersectionObserver lazy-src in VideoThumbnail
-//   • PDFs:   loadingTask.destroy() cleanup in PdfThumbnail
+//
+// Root causes of the "delayed column loading" bug (now fixed):
+//
+// 1. loading="lazy" on <img> inside overflow-y-auto: The browser loads images
+//    in DOM order within each scroll container. react-masonry-css places
+//    column 0's items first in the DOM, then column 1's, then column 2's.
+//    The browser gives lower priority to later columns, so column N images
+//    load noticeably later than column 0 images at the same scroll position.
+//
+//    FIX: Remove loading="lazy" from MasonryCard images. The items themselves
+//    only appear in the DOM once fetched (via infinite scroll), so we want
+//    them to load immediately when rendered. Lazy loading is handled at the
+//    item level (infinite scroll / IntersectionObserver), not image level.
+//    The MasonryCard now receives an `eagerLoad` prop that switches off lazy.
+//
+// 2. Sentinel IntersectionObserver has no `root`: Without a root, the
+//    observer uses the document viewport. The rootMargin: '300px' expands
+//    the VIEWPORT rectangle. But because the scroll container is
+//    overflow-y-auto, it clips the sentinel's visible rect. The effective
+//    pre-fetch window is nearly zero — the sentinel fires only when the
+//    tallest masonry column has almost fully scrolled through. New items
+//    then appear almost exactly at the user's scroll position, with no
+//    time for images to load before they're visible.
+//
+//    FIX: Pass the scroll container element as `root` to the observer.
+//    With a proper root, rootMargin works correctly against the scroll
+//    container's edge, giving a true 1200px pre-fetch window. New items
+//    are fetched 1200px before the user reaches them, so their images
+//    have time to fully load before they become visible.
+//
 const MasonryView = ({ files, hasMore, isLoadingMore, loadFiles, isRecents }) => {
+  const scrollRef  = useRef(null);
   const sentinelRef = useRef(null);
 
-  // Infinite scroll sentinel for masonry
+  // Infinite scroll:
+  // - root: scroll container → rootMargin is measured against container edge
+  // - rootMargin: '1200px' → fetch new page 1200px before user reaches bottom
+  //   This gives images plenty of time to load before they're visible.
   useEffect(() => {
     if (isRecents || !hasMore || isLoadingMore) return;
     const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+    const scrollEl = scrollRef.current;
+    if (!sentinel || !scrollEl) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) loadFiles(); },
-      { rootMargin: '300px' }
+      ([entry]) => {
+        if (entry.isIntersecting) loadFiles();
+      },
+      {
+        root: scrollEl,          // ← correct root: the scroll container
+        rootMargin: '0px 0px 1200px 0px', // ← pre-fetch 1200px before bottom
+      }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, isLoadingMore, loadFiles, isRecents]);
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
       <div className="p-3 sm:p-4">
         <Masonry
           breakpointCols={breakpointColumnsObj}
@@ -113,13 +148,16 @@ const MasonryView = ({ files, hasMore, isLoadingMore, loadFiles, isRecents }) =>
         >
           {files.map((file, index) => (
             <div key={`${file.path}-${index}`} className="masonry-item">
-              <MasonryCard file={file} />
+              {/* eagerLoad=true disables loading="lazy" on the image so all
+                  columns load in parallel at the same time instead of in
+                  DOM order (column 0 first, column N last). */}
+              <MasonryCard file={file} eagerLoad />
             </div>
           ))}
         </Masonry>
 
         {/* Sentinel for infinite scroll */}
-        {!isRecents && hasMore && !isLoadingMore && (
+        {!isRecents && (
           <div ref={sentinelRef} className="h-1 w-full" />
         )}
 
@@ -134,25 +172,21 @@ const MasonryView = ({ files, hasMore, isLoadingMore, loadFiles, isRecents }) =>
   );
 };
 
-/* ─── Column count (for virtualised grid / list) ────────────────────────────── */
+/* ─── Column count (for grid / list virtualizer) ────────────────────────────── */
 const useColumnCount = (containerWidth, viewMode) => {
   if (viewMode === 'list') return 1;
-  // Grid breakpoints matching Tailwind classes in original grid view
-  if (containerWidth >= 1536) return 6;  // 2xl
-  if (containerWidth >= 1024) return 5;  // lg
-  if (containerWidth >= 768)  return 4;  // md
-  if (containerWidth >= 480)  return 3;  // min-[480px]
+  if (containerWidth >= 1536) return 6;
+  if (containerWidth >= 1024) return 5;
+  if (containerWidth >= 768)  return 4;
+  if (containerWidth >= 480)  return 3;
   return 2;
 };
 
 /* ─── Virtualised Grid / List ───────────────────────────────────────────────── */
-// Only the rows visible in the viewport (+ 3 overscan rows) are in the DOM.
-// As rows scroll off-screen they unmount, freeing image/video/PDF memory.
 const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFiles, isRecents }) => {
   const scrollRef    = useRef(null);
   const [containerWidth, setContainerWidth] = useState(800);
 
-  // Track container width for responsive columns
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -164,7 +198,6 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
   const isList   = viewMode === 'list';
   const columns  = useColumnCount(containerWidth, viewMode);
 
-  // Group flat file array into rows
   const rows = isList
     ? files.map(f => [f])
     : files.reduce((acc, file, i) => {
@@ -188,7 +221,6 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // Trigger infinite scroll when approaching last row
   useEffect(() => {
     if (isRecents || !hasMore || isLoadingMore) return;
     const lastItem = virtualItems[virtualItems.length - 1];
@@ -199,8 +231,6 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
   return (
     <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
       <div className="p-3 sm:p-4">
-
-        {/* List header row */}
         {isList && files.length > 0 && (
           <>
             <div className="flex items-center gap-3 sm:gap-4 px-3 py-1.5 mb-1">
@@ -213,7 +243,6 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
           </>
         )}
 
-        {/* Virtual scroll container */}
         <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
           {virtualItems.map((virtualRow) => {
             const rowFiles = rows[virtualRow.index];
@@ -232,14 +261,12 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {/* List row */}
                 {isList && (
                   <div className="pb-0.5">
                     <ListRow file={rowFiles[0]} />
                   </div>
                 )}
 
-                {/* Grid row */}
                 {viewMode === 'grid' && (
                   <div
                     className="grid gap-2 sm:gap-3 pb-2"
@@ -257,7 +284,6 @@ const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFil
           })}
         </div>
 
-        {/* Loading more indicator */}
         {isLoadingMore && !isRecents && (
           <div className="flex justify-center items-center py-8 gap-2">
             <Loader2 className="animate-spin text-surface-600" size={18} />
@@ -317,7 +343,6 @@ const MediaGrid = () => {
     return availableFileTypes.filter(({ extension }) => categorySet.has(extension));
   })();
 
-  // Auto-reset extension filter on library section change
   useEffect(() => {
     if (selectedFileType && !filteredFileTypes.some(ft => ft.extension === selectedFileType)) {
       setSelectedFileType('');
@@ -325,7 +350,6 @@ const MediaGrid = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLibrarySection]);
 
-  /* ── Status label ─────────────────────────────────────────────────────────── */
   const statusLabel = (() => {
     if (isRecents) return (
       <><span className="text-surface-400 font-semibold tabular-nums">{displayFiles.length}</span> recently opened</>
@@ -446,8 +470,7 @@ const MediaGrid = () => {
         </div>
       )}
 
-      {/* ── Content: masonry uses react-masonry-css for correct stagger layout;
-              grid/list use the row virtualizer for memory efficiency ─────────── */}
+      {/* ── Masonry: react-masonry-css preserves natural stagger layout ──────── */}
       {displayFiles.length > 0 && viewMode === 'masonry' && (
         <MasonryView
           files={displayFiles}
@@ -458,6 +481,7 @@ const MediaGrid = () => {
         />
       )}
 
+      {/* ── Grid / List: row virtualizer for memory efficiency ───────────────── */}
       {displayFiles.length > 0 && (viewMode === 'grid' || viewMode === 'list') && (
         <VirtualizedGrid
           files={displayFiles}
@@ -469,7 +493,6 @@ const MediaGrid = () => {
         />
       )}
 
-      {/* Loading spinner when list is empty but first load is in progress */}
       {isLoadingMore && displayFiles.length === 0 && (
         <div className="flex-1 flex justify-center items-center gap-2">
           <Loader2 className="animate-spin text-surface-600" size={18} />
