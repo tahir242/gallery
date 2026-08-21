@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo } from 'react';
+import { useEffect, useRef, useCallback, memo, useState } from 'react';
 import {
   LayoutGrid, List, Image as ImageIcon, Loader2,
   Columns3, ChevronDown,
@@ -7,6 +7,8 @@ import useGalleryStore from '../store/galleryStore';
 import MediaCard, { MasonryCard } from './MediaCard';
 import Masonry from 'react-masonry-css';
 import { Tooltip } from './ui/Tooltip';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useShallow } from 'zustand/react/shallow';
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
@@ -68,18 +70,208 @@ const ViewBtn = ({ mode, current, icon: Icon, label, onClick }) => (
   </Tooltip>
 );
 
-import { useShallow } from 'zustand/react/shallow';
-
-/* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
+/* ─── Masonry breakpoints (restored to original) ────────────────────────────── */
 const breakpointColumnsObj = {
   default: 7,
   1920: 6,
   1536: 5,
   1280: 4,
   1024: 3,
-  640: 2
+  640: 2,
 };
 
+/* ─── Masonry View ──────────────────────────────────────────────────────────── */
+// Uses react-masonry-css so items stack naturally with variable heights.
+// Memory is kept in check by:
+//   • images: browser native loading="lazy" in MasonryCard/MediaCard
+//   • videos: IntersectionObserver lazy-src in VideoThumbnail
+//   • PDFs:   loadingTask.destroy() cleanup in PdfThumbnail
+const MasonryView = ({ files, hasMore, isLoadingMore, loadFiles, isRecents }) => {
+  const sentinelRef = useRef(null);
+
+  // Infinite scroll sentinel for masonry
+  useEffect(() => {
+    if (isRecents || !hasMore || isLoadingMore) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadFiles(); },
+      { rootMargin: '300px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadFiles, isRecents]);
+
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="p-3 sm:p-4">
+        <Masonry
+          breakpointCols={breakpointColumnsObj}
+          className="masonry-grid pb-8"
+          columnClassName="masonry-grid_column"
+        >
+          {files.map((file, index) => (
+            <div key={`${file.path}-${index}`} className="masonry-item">
+              <MasonryCard file={file} />
+            </div>
+          ))}
+        </Masonry>
+
+        {/* Sentinel for infinite scroll */}
+        {!isRecents && hasMore && !isLoadingMore && (
+          <div ref={sentinelRef} className="h-1 w-full" />
+        )}
+
+        {isLoadingMore && !isRecents && (
+          <div className="flex justify-center items-center py-8 gap-2">
+            <Loader2 className="animate-spin text-surface-600" size={18} />
+            <span className="text-surface-600 text-xs">Loading more…</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Column count (for virtualised grid / list) ────────────────────────────── */
+const useColumnCount = (containerWidth, viewMode) => {
+  if (viewMode === 'list') return 1;
+  // Grid breakpoints matching Tailwind classes in original grid view
+  if (containerWidth >= 1536) return 6;  // 2xl
+  if (containerWidth >= 1024) return 5;  // lg
+  if (containerWidth >= 768)  return 4;  // md
+  if (containerWidth >= 480)  return 3;  // min-[480px]
+  return 2;
+};
+
+/* ─── Virtualised Grid / List ───────────────────────────────────────────────── */
+// Only the rows visible in the viewport (+ 3 overscan rows) are in the DOM.
+// As rows scroll off-screen they unmount, freeing image/video/PDF memory.
+const VirtualizedGrid = memo(({ files, viewMode, hasMore, isLoadingMore, loadFiles, isRecents }) => {
+  const scrollRef    = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(800);
+
+  // Track container width for responsive columns
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const isList   = viewMode === 'list';
+  const columns  = useColumnCount(containerWidth, viewMode);
+
+  // Group flat file array into rows
+  const rows = isList
+    ? files.map(f => [f])
+    : files.reduce((acc, file, i) => {
+        const ri = Math.floor(i / columns);
+        if (!acc[ri]) acc[ri] = [];
+        acc[ri].push(file);
+        return acc;
+      }, []);
+
+  const estimateSize = useCallback(
+    () => isList ? 44 : 200,
+    [isList]
+  );
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize,
+    overscan: 3,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // Trigger infinite scroll when approaching last row
+  useEffect(() => {
+    if (isRecents || !hasMore || isLoadingMore) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+    if (lastItem.index >= rows.length - 5) loadFiles();
+  }, [virtualItems, rows.length, hasMore, isLoadingMore, loadFiles, isRecents]);
+
+  return (
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+      <div className="p-3 sm:p-4">
+
+        {/* List header row */}
+        {isList && files.length > 0 && (
+          <>
+            <div className="flex items-center gap-3 sm:gap-4 px-3 py-1.5 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 w-9 flex-shrink-0">Type</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 flex-1">Name</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 hidden md:block w-48">Path</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 w-16 text-right">Size</span>
+            </div>
+            <div className="h-px bg-surface-800/50 mb-1" />
+          </>
+        )}
+
+        {/* Virtual scroll container */}
+        <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+          {virtualItems.map((virtualRow) => {
+            const rowFiles = rows[virtualRow.index];
+            if (!rowFiles) return null;
+
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {/* List row */}
+                {isList && (
+                  <div className="pb-0.5">
+                    <ListRow file={rowFiles[0]} />
+                  </div>
+                )}
+
+                {/* Grid row */}
+                {viewMode === 'grid' && (
+                  <div
+                    className="grid gap-2 sm:gap-3 pb-2"
+                    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+                  >
+                    {rowFiles.map((file, i) => (
+                      <div key={`${file.path}-${i}`}>
+                        <MediaCard file={file} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Loading more indicator */}
+        {isLoadingMore && !isRecents && (
+          <div className="flex justify-center items-center py-8 gap-2">
+            <Loader2 className="animate-spin text-surface-600" size={18} />
+            <span className="text-surface-600 text-xs">Loading more…</span>
+          </div>
+        )}
+
+        {files.length > 0 && <div className="h-8" />}
+      </div>
+    </div>
+  );
+});
+
+/* ─── MediaGrid ─────────────────────────────────────────────────────────────── */
 const MediaGrid = () => {
   const {
     files, viewMode, setViewMode, searchQuery, selectedFolder,
@@ -109,11 +301,9 @@ const MediaGrid = () => {
     recentFiles: s.recentFiles,
   })));
 
-  // When showing recents, use recentFiles list; otherwise use the normal files list
   const isRecents    = activeLibrarySection === 'recents';
   const displayFiles = isRecents ? recentFiles : files;
 
-  // Extension → category mapping for filtering the file-type dropdown
   const CATEGORY_EXTS = {
     image:    new Set(['jpg','jpeg','png','gif','webp','bmp','tiff','tif','svg','heic','heif','avif','ico']),
     video:    new Set(['mp4','mkv','avi','mov','wmv','flv','webm','m4v','mpg','mpeg','3gp']),
@@ -121,34 +311,19 @@ const MediaGrid = () => {
     document: new Set(['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv']),
   };
 
-  // Filter the dropdown options to match the active library category
   const filteredFileTypes = (() => {
     const categorySet = CATEGORY_EXTS[activeLibrarySection];
-    if (!categorySet) return availableFileTypes; // 'all', 'favorites', 'recents' → show all
+    if (!categorySet) return availableFileTypes;
     return availableFileTypes.filter(({ extension }) => categorySet.has(extension));
   })();
 
-  const observerRef = useRef();
-
-  // Auto-reset the extension dropdown when switching library category
-  // so a stale selection (e.g. 'jpg' while in Videos) doesn't linger
+  // Auto-reset extension filter on library section change
   useEffect(() => {
     if (selectedFileType && !filteredFileTypes.some(ft => ft.extension === selectedFileType)) {
       setSelectedFileType('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLibrarySection]);
-
-  const lastElementRef = useCallback((node) => {
-    if (isLoadingMore) return;
-    if (observerRef.current) observerRef.current.disconnect();
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore) loadFiles();
-    }, { rootMargin: '200px' });
-    if (node) observerRef.current.observe(node);
-  }, [isLoadingMore, hasMore, loadFiles]);
-
-  useEffect(() => () => observerRef.current?.disconnect(), []);
 
   /* ── Status label ─────────────────────────────────────────────────────────── */
   const statusLabel = (() => {
@@ -176,7 +351,6 @@ const MediaGrid = () => {
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-surface-800/60 flex-shrink-0 flex-wrap">
 
-        {/* Status */}
         <div className="flex-1 min-w-0 text-[12px] text-surface-600 truncate">
           {statusLabel}
           {scanStatus === 'scanning' && (
@@ -187,10 +361,8 @@ const MediaGrid = () => {
           )}
         </div>
 
-        {/* Controls row */}
         <div className="flex items-center gap-2">
 
-          {/* File type filter — hidden in Recents mode, scoped to active library category */}
           {!isRecents && filteredFileTypes.length > 0 && (
             <div className="relative">
               <select
@@ -214,7 +386,6 @@ const MediaGrid = () => {
             </div>
           )}
 
-          {/* Sort — hidden in Recents mode (order is open-time desc) */}
           {!isRecents && (
             <div className="relative">
               <select
@@ -241,7 +412,6 @@ const MediaGrid = () => {
             </div>
           )}
 
-          {/* View mode toggle */}
           <div className="flex items-center gap-0.5 p-1 rounded-[6px] border border-surface-800 bg-surface-900/80">
             <ViewBtn mode="masonry" current={viewMode} icon={Columns3}   label="Masonry view" onClick={setViewMode} />
             <ViewBtn mode="grid"    current={viewMode} icon={LayoutGrid}  label="Grid view"    onClick={setViewMode} />
@@ -250,98 +420,62 @@ const MediaGrid = () => {
         </div>
       </div>
 
-      {/* ── Content ─────────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="p-3 sm:p-4">
-
-          {/* Error */}
-          {filesError && !isRecents && (
-            <div role="alert" className="mb-4 rounded-card border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400">
-              {filesError}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {displayFiles.length === 0 && !isLoadingMore && !filesError && (
-            <div className="flex flex-col items-center justify-center text-center py-24 animate-fade-in">
-              <div className="w-14 h-14 rounded-2xl bg-surface-900 border border-surface-800 flex items-center justify-center mb-4">
-                <ImageIcon size={24} className="text-surface-700" />
-              </div>
-              <p className="text-surface-400 font-medium text-sm">
-                {isRecents ? 'No recently opened files' : 'No media files found'}
-              </p>
-              <p className="text-surface-700 text-xs mt-1">
-                {isRecents
-                  ? 'Open files in the gallery to see them here'
-                  : searchQuery || selectedFileType
-                    ? 'Try a different filter or search term'
-                    : 'This folder contains no media files'}
-              </p>
-            </div>
-          )}
-
-          {/* ── Masonry layout ───────────────────────────────────────────────── */}
-          {displayFiles.length > 0 && viewMode === 'masonry' && (
-            <Masonry
-              breakpointCols={breakpointColumnsObj}
-              className="masonry-grid pb-8"
-              columnClassName="masonry-grid_column"
-            >
-              {displayFiles.map((file, index) => (
-                  <div
-                    key={`${file.path}-${index}`}
-                    className="masonry-item"
-                  >
-                    <MasonryCard file={file} />
-                  </div>
-              ))}
-            </Masonry>
-          )}
-
-          {/* ── Uniform grid layout ──────────────────────────────────────────── */}
-          {displayFiles.length > 0 && viewMode === 'grid' && (
-            <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 pb-8">
-              {displayFiles.map((file, index) => (
-                  <div key={`${file.path}-${index}`}>
-                    <MediaCard file={file} />
-                  </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── List layout ──────────────────────────────────────────────────── */}
-          {displayFiles.length > 0 && viewMode === 'list' && (
-            <div className="flex flex-col pb-8">
-              {/* Header row */}
-              <div className="flex items-center gap-3 sm:gap-4 px-3 py-1.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 w-9 flex-shrink-0">Type</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 flex-1">Name</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 hidden md:block w-48">Path</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-surface-700 w-16 text-right">Size</span>
-              </div>
-              <div className="h-px bg-surface-800/50 mb-1" />
-              {displayFiles.map((file, index) => (
-                  <div key={`${file.path}-${index}`}>
-                    <ListRow file={file} />
-                  </div>
-              ))}
-            </div>
-          )}
-
-          {/* Sentinel element for infinite scroll — not needed in Recents mode */}
-          {!isRecents && displayFiles.length > 0 && hasMore && !isLoadingMore && (
-            <div ref={lastElementRef} className="h-1 w-full" />
-          )}
-
-          {/* Loading indicator */}
-          {isLoadingMore && !isRecents && (
-            <div className="flex justify-center items-center py-8 gap-2">
-              <Loader2 className="animate-spin text-surface-600" size={18} />
-              <span className="text-surface-600 text-xs">Loading more…</span>
-            </div>
-          )}
+      {/* ── Error ────────────────────────────────────────────────────────────── */}
+      {filesError && !isRecents && (
+        <div role="alert" className="mx-4 mt-3 rounded-card border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400 flex-shrink-0">
+          {filesError}
         </div>
-      </div>
+      )}
+
+      {/* ── Empty state ──────────────────────────────────────────────────────── */}
+      {displayFiles.length === 0 && !isLoadingMore && !filesError && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-24 animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-surface-900 border border-surface-800 flex items-center justify-center mb-4">
+            <ImageIcon size={24} className="text-surface-700" />
+          </div>
+          <p className="text-surface-400 font-medium text-sm">
+            {isRecents ? 'No recently opened files' : 'No media files found'}
+          </p>
+          <p className="text-surface-700 text-xs mt-1">
+            {isRecents
+              ? 'Open files in the gallery to see them here'
+              : searchQuery || selectedFileType
+                ? 'Try a different filter or search term'
+                : 'This folder contains no media files'}
+          </p>
+        </div>
+      )}
+
+      {/* ── Content: masonry uses react-masonry-css for correct stagger layout;
+              grid/list use the row virtualizer for memory efficiency ─────────── */}
+      {displayFiles.length > 0 && viewMode === 'masonry' && (
+        <MasonryView
+          files={displayFiles}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          loadFiles={loadFiles}
+          isRecents={isRecents}
+        />
+      )}
+
+      {displayFiles.length > 0 && (viewMode === 'grid' || viewMode === 'list') && (
+        <VirtualizedGrid
+          files={displayFiles}
+          viewMode={viewMode}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          loadFiles={loadFiles}
+          isRecents={isRecents}
+        />
+      )}
+
+      {/* Loading spinner when list is empty but first load is in progress */}
+      {isLoadingMore && displayFiles.length === 0 && (
+        <div className="flex-1 flex justify-center items-center gap-2">
+          <Loader2 className="animate-spin text-surface-600" size={18} />
+          <span className="text-surface-600 text-xs">Loading…</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -13,10 +13,11 @@ const PdfThumbnail = ({ src, name }) => {
   useEffect(() => {
     let cancelled = false;
     let blobUrl = null;
+    let loadingTask = null;
 
     const renderFirstPage = async () => {
       try {
-        const loadingTask = pdfjsLib.getDocument({ 
+        loadingTask = pdfjsLib.getDocument({ 
           url: src,
           cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
           cMapPacked: true
@@ -57,6 +58,8 @@ const PdfThumbnail = ({ src, name }) => {
     return () => {
       cancelled = true;
       if (blobUrl) URL.revokeObjectURL(blobUrl);
+      // Properly destroy the pdf.js loading task to release worker thread memory
+      if (loadingTask) loadingTask.destroy().catch(() => {});
     };
   }, [src]);
 
