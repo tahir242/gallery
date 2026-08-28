@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-28
+
 ### Security
 - **SQL Injection (CWE-089)**: Eliminated a CodeQL-flagged SQL injection risk in `getMediaList` (`/api/media/list`). The base `WHERE` query is now captured as `baseQuery` *before* any `ORDER BY` is appended, so the `COUNT(*)` query is built from the clean filter string rather than via a fragile `String.replace()` on a partially-built query. The `ORDER BY` column and direction remain validated against explicit allowlists (required because SQLite does not support parameterized identifiers). Added NaN/range guards on `page` and `limit` to prevent malformed pagination inputs from reaching the database.
 - **Tainted Format String (CWE-134)**: Fixed a CodeQL-flagged tainted format string in `processDir` (`scannerJob.js`). The user-controlled directory path was previously interpolated directly into the template-literal message passed to `console.error`. The path is now passed as a separate argument, keeping the message string a static literal and eliminating the taint-tracking sink.
