@@ -1,16 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 const { getMimeType } = require('../utils/mediaTypes');
-const { normalizePath } = require('../utils/scanner');
+const { normalizePath, containsPath } = require('../utils/scanner');
 const { getDb } = require('../db');
 const { exiftool } = require('exiftool-vendored');
 const sharp = require('sharp');
 
 /**
+ * Verify that `resolvedPath` falls within at least one indexed scan root.
+ * This is the primary CWE-22 (path traversal) guard for file-serving endpoints.
+ * Only files that were explicitly scanned by the user can be read or served.
+ *
+ * @param {object} db - open database handle
+ * @param {string} resolvedPath - absolute, normalized path to validate
+ * @returns {Promise<boolean>} true if the path is inside a known scan root
+ */
+const isUnderIndexedRoot = async (db, resolvedPath) => {
+  const roots = await db.all(
+    `SELECT DISTINCT path FROM scans WHERE status = 'completed'`
+  );
+  return roots.some(r => containsPath(r.path, resolvedPath));
+};
+
+/**
  * GET /api/media/serve?path=<encoded_file_path>
  * Stream a media file to the client with proper MIME type and range support
  */
-const serveMedia = (req, res) => {
+const serveMedia = async (req, res) => {
   const filePath = req.query.path;
 
   if (!filePath) {
@@ -19,6 +35,12 @@ const serveMedia = (req, res) => {
 
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
+
+  // Security (CWE-22): reject paths that are not under any indexed scan root.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   // Security: ensure the file exists and is a file (not a directory)
   let stat;
@@ -69,7 +91,7 @@ const serveMedia = (req, res) => {
  * GET /api/media/info?path=<encoded_file_path>
  * Return metadata about a media file
  */
-const getMediaInfo = (req, res) => {
+const getMediaInfo = async (req, res) => {
   const filePath = req.query.path;
 
   if (!filePath) {
@@ -78,6 +100,12 @@ const getMediaInfo = (req, res) => {
 
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
+
+  // Security (CWE-22): reject paths outside indexed scan roots.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   try {
     const stat = fs.statSync(normalizedPath);
@@ -109,6 +137,12 @@ const getMediaMetadata = async (req, res) => {
 
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
+
+  // Security (CWE-22): reject paths outside indexed scan roots.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   try {
     const tags = await exiftool.read(normalizedPath);
@@ -389,6 +423,14 @@ const editMedia = async (req, res) => {
       pipeline = pipeline.webp({ quality: 90 });
     } else {
       pipeline = pipeline.png();
+    }
+
+    // Security (CWE-22): confirm the output path stays within the same
+    // directory as the source file — prevents directory traversal via
+    // crafted format or saveMode values.
+    const sourceDir = path.parse(sourcePath).dir;
+    if (!containsPath(sourceDir, outputPath)) {
+      return res.status(400).json({ error: 'Invalid output path' });
     }
 
     await pipeline.toFile(outputPath);

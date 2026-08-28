@@ -2,6 +2,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const { getDb } = require('../db');
 const { isMediaFile, getMimeType } = require('./mediaTypes');
+const { containsPath } = require('./scanner');
 
 const BATCH_SIZE = 2000;
 
@@ -115,6 +116,13 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
     // ── Cancellation check — bail out immediately if cancelled ──────────────
     if (isCancelled()) return;
 
+    // Security (CWE-22): ensure this directory is still within the scan root.
+    // Symlinks or crafted paths could otherwise escape the intended boundary.
+    if (!containsPath(rootPath, dirPath)) {
+      console.error('Skipping out-of-bounds directory:', dirPath);
+      return;
+    }
+
     try {
       const dirName = path.basename(dirPath) || dirPath;
       
@@ -138,13 +146,21 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
           return;
         }
         if (entry.isDirectory()) {
-          subdirs.push(path.join(dirPath, entry.name));
+          const subdirPath = path.join(dirPath, entry.name);
+          // Security (CWE-22): only descend into paths still within the root.
+          if (containsPath(rootPath, subdirPath)) {
+            subdirs.push(subdirPath);
+          }
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).slice(1).toLowerCase();
           if (isMediaFile(ext)) {
             if (!selectedExtensions || selectedExtensions.includes(ext)) {
-              mediaFiles.push({ name: entry.name, fullPath: path.join(dirPath, entry.name), ext });
-              filesDiscovered++;
+              const fullPath = path.join(dirPath, entry.name);
+              // Security (CWE-22): confirm file path stays within the root.
+              if (containsPath(rootPath, fullPath)) {
+                mediaFiles.push({ name: entry.name, fullPath, ext });
+                filesDiscovered++;
+              }
             }
           }
         }
