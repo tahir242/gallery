@@ -196,7 +196,9 @@ const runScan = async (scanId, rootPath, selectedExtensions = null) => {
       }
 
     } catch (err) {
-      console.error(`Error scanning directory ${dirPath}:`, err.message);
+      // Pass dirPath as a separate argument so the message string stays a static
+      // literal — prevents CWE-134 tainted-format-string (CodeQL js/tainted-format-string).
+      console.error('Error scanning directory:', dirPath, err.message);
     }
   };
 
