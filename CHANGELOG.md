@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **SQL Injection (CWE-089)**: Eliminated a CodeQL-flagged SQL injection risk in `getMediaList` (`/api/media/list`). The base `WHERE` query is now captured as `baseQuery` *before* any `ORDER BY` is appended, so the `COUNT(*)` query is built from the clean filter string rather than via a fragile `String.replace()` on a partially-built query. The `ORDER BY` column and direction remain validated against explicit allowlists (required because SQLite does not support parameterized identifiers). Added NaN/range guards on `page` and `limit` to prevent malformed pagination inputs from reaching the database.
+
 ## [1.3.0] - 2026-08-21
 
 ### Added

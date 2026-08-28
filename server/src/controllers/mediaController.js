@@ -138,25 +138,25 @@ const getMediaList = async (req, res) => {
       limit = 60
     } = req.query;
 
-    let query = `SELECT * FROM media WHERE 1=1`;
+    // Security: build the WHERE clause using only parameterized placeholders so
+    // no user-supplied value is ever interpolated directly into the SQL string.
+    // The ORDER BY column and direction cannot be parameterized in SQLite, so
+    // they are validated against explicit allowlists before interpolation.
+    let baseQuery = `SELECT * FROM media WHERE 1=1`;
     const params = [];
 
     // Filter by directory path (exact match) OR if omitted, all media
     if (directoryPath) {
-      // For recursive, we could do LIKE but prompt said "Do not recursively load the entire directory tree unless necessary".
-      // We will only load media exactly in the directoryPath.
-      // Wait, "All Files" mode means directoryPath is empty.
-      if (directoryPath === 'all') {
-        // don't filter by directory
-      } else {
-        // If we want recursive loading for a selected folder, we do LIKE path + '%'
-        query += ` AND directory_path LIKE ?`;
+      // "All Files" mode — no directory filter
+      if (directoryPath !== 'all') {
+        // Recursive: load all media whose path starts with the selected folder
+        baseQuery += ` AND directory_path LIKE ?`;
         params.push(directoryPath + '%');
       }
     }
 
     if (ext) {
-      query += ` AND ext = ?`;
+      baseQuery += ` AND ext = ?`;
       params.push(ext);
     }
 
@@ -164,46 +164,49 @@ const getMediaList = async (req, res) => {
     if (mediaType) {
       if (mediaType === 'document') {
         // Documents are anything that is not image/video/audio
-        query += ` AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'`;
+        baseQuery += ` AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'`;
       } else {
-        query += ` AND mime_type LIKE ?`;
+        baseQuery += ` AND mime_type LIKE ?`;
         params.push(mediaType + '/%');
       }
     }
 
     if (search) {
-      query += ` AND name LIKE ?`;
+      baseQuery += ` AND name LIKE ?`;
       params.push('%' + search + '%');
     }
-    
+
     if (favoritesOnly === 'true') {
-      query += ` AND is_favorite = 1`;
+      baseQuery += ` AND is_favorite = 1`;
     }
 
-    // Determine sort column securely
+    // Allowlist-validate ORDER BY identifiers — SQLite does not support
+    // parameterized column names, so we guard against injection explicitly.
     const validFields = ['name', 'size', 'modified_at'];
     const validOrders = ['asc', 'desc'];
-    
-    // Map frontend sort names to DB columns
+
     let dbSortField = 'modified_at';
     if (sortField === 'date') dbSortField = 'modified_at';
     else if (validFields.includes(sortField)) dbSortField = sortField;
 
-    const dbSortOrder = validOrders.includes(sortOrder.toLowerCase()) ? sortOrder.toUpperCase() : 'DESC';
+    const dbSortOrder = validOrders.includes(sortOrder.toLowerCase())
+      ? sortOrder.toUpperCase()
+      : 'DESC';
 
-    query += ` ORDER BY ${dbSortField} ${dbSortOrder}`;
-
-    // Pagination
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const limitNum = parseInt(limit, 10);
-    
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+    // Run the COUNT query against the base WHERE clause (no ORDER BY needed for counting).
+    const countQuery = baseQuery.replace('SELECT *', 'SELECT COUNT(*) as count');
     const totalResult = await db.get(countQuery, params);
-    
-    query += ` LIMIT ? OFFSET ?`;
-    params.push(limitNum, offset);
 
-    const files = await db.all(query, params);
+    // Guard against NaN-derived offsets from malformed page/limit values.
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 60));
+    const offset = (pageNum - 1) * limitNum;
+
+    // Append ORDER BY and pagination only to the data query.
+    const dataQuery = `${baseQuery} ORDER BY ${dbSortField} ${dbSortOrder} LIMIT ? OFFSET ?`;
+    const dataParams = [...params, limitNum, offset];
+
+    const files = await db.all(dataQuery, dataParams);
 
     res.json({
       files,
