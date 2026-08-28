@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-21
+
 ### Added
+- **Virtualization**: Introduced `@tanstack/react-virtual` for Grid and List views to significantly reduce DOM node count and memory footprint when browsing massive folders.
 - **Redesigned Left Sidebar**: Completely restructured the sidebar into three distinct, independently collapsible sections — **Locations**, **Library**, and **Folders** — for a cleaner, more intuitive navigation experience. Collapse state for each section is persisted in `localStorage`.
 - **Locations Section**: Displays the full history of previously scanned directories. Click any entry to instantly re-scan that location with its original file-type selections. Each entry shows the path, file count, and a trash icon to remove it from history.
 - **Library Section**: Quick-access navigation panel with seven shortcut rows: **All Media**, **Images**, **Videos**, **Audios**, **Documents**, **Favorites** (with live count badge), and **Recents** (with live count badge). Selecting any row instantly filters the media grid.
@@ -25,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Floating Controls**: Moved all viewer-specific controls (PDF zoom/page inputs, spreadsheet tab selectors, text line counts) into floating pill bars pinned to the bottom of the screen.
 
 ### Fixed
+- **Critical Video Memory Leaks**: Fixed a massive memory leak (causing up to 10+ GB RAM usage in Chrome) by aggressively unloading videos (`video.src = ''; video.load()`) when they scroll off-screen to free hardware decode buffers.
+- **PDF Worker Memory Leaks**: Fixed a memory leak in `PdfThumbnail` by explicitly terminating orphaned `pdf.js` background worker threads on component cleanup.
+- **Perpetual Scanning ("Indexing...")**: Fixed an issue where scans would run indefinitely in the background. Added a cancellation token system (`cancelledScans`) to cleanly abort running recursive directory scans.
+- **Concurrency & Stale Polling**: Fixed bugs where switching locations caused the client to poll orphaned scan IDs, and multiple background workers would run simultaneously and corrupt database progress counters.
+- **Database Thrashing**: Throttled `loadFiles()` during active scanning. The UI now only queries the database when 100+ new files have been indexed, rather than firing heavy queries every second.
+- **Masonry View Rendering**: Fixed the delayed column loading issue in the Masonry layout. Removed `loading="lazy"` on items to allow parallel image loading across all columns instead of sequential DOM-order loading.
+- **Infinite Scroll Lookahead**: Fixed the infinite scroll sentinel by explicitly setting the scroll container as the `IntersectionObserver` root with a `1200px` margin, ensuring new pages fetch well before the user reaches the bottom.
+- **Database Performance**: Added missing SQLite indexes (`idx_media_modified`, `idx_media_fav`, `idx_scans_path_status`) to massively speed up default sorting and cancellation lookup queries.
 - Fixed sidebar layout breakage on ultra-wide screens by enforcing max-width constraints on the sidebar container and ensuring flex-shrink properties are applied to the folder tree view.
 - Fixed Images, Videos, Audios, and Documents Library sections showing no media. The API previously only supported filtering by exact file extension (`ext=jpg`); a new `mediaType` query parameter was added to the `/api/media/list` endpoint that filters by `mime_type LIKE 'image/%'` etc., enabling correct category-level filtering without any extension guesswork.
 - Fixed an issue where clicking a location from the "Recent Scans" list would ignore the originally saved file extensions and use the default selections. The scanner now correctly restores and applies the exact file types used during the initial scan.

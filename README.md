@@ -13,7 +13,7 @@
 
 An intelligent, portable media desktop application that incrementally indexes local and network directories. Bring your photos and videos to life with an attractive, mobile-first design and powerful native desktop capabilities.
 
-[User Manual](docs/USER_MANUAL.md) • [Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [Developer Guide](docs/DEVELOPMENT.md) • [API Reference](#books-api-reference) • [Contributing](#handshake-contributing)
+[User Manual](docs/USER_MANUAL.md) • [Explore Features](#sparkles-features) • [Installation](#rocket-getting-started) • [Developer Guide](docs/DEVELOPMENT.md) • [API Reference](#books-api-reference) • [Roadmap](ROADMAP.md) • [Contributing](CONTRIBUTING.md) • [Discussions](../../discussions)
 
 </div>
 
@@ -88,7 +88,7 @@ Clone the repository and install dependencies in one command:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gallery.git
+git clone https://github.com/tahir242/gallery.git
 cd gallery
 
 # Install all dependencies (root, server, client)
@@ -146,13 +146,22 @@ npm run client
 
 ## :handshake: Contributing
 
-We welcome contributions from the community! If you'd like to help build the roadmap features or fix a bug, please check out our [Contributing Guidelines](CONTRIBUTING.md).
+We welcome contributions from the community! Whether it's a bug fix, new feature, or even a typo correction — every contribution counts. 🙏
 
+| Resource | Link |
+|----------|------|
+| 📖 Contributing Guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 🗺️ Roadmap | [ROADMAP.md](ROADMAP.md) |
+| 🟢 Good First Issues | [View issues](../../issues?q=label%3A%22good+first+issue%22) |
+| 🤝 Code of Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| 💬 Discussions | [Ask questions / share ideas](../../discussions) |
+
+**Quick start:**
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+3. Commit with [Conventional Commits](https://www.conventionalcommits.org/) (`git commit -m 'feat: add AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+5. Open a Pull Request against `main`
 
 ---
 
