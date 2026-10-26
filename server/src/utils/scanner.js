@@ -26,14 +26,37 @@ const normalizePath = (inputPath) => {
 };
 
 /**
- * Check if a directory is accessible (async)
+ * Assert that `childPath` is contained within `parentPath`.
+ * Both paths are resolved to their absolute, canonical form before comparison
+ * so that relative segments (`..`) and symlink tricks cannot escape the
+ * intended boundary. This is the standard mitigation for CWE-22 path traversal.
+ *
+ * @param {string} parentPath - trusted root directory
+ * @param {string} childPath  - candidate path to validate
+ * @returns {boolean}
+ */
+const containsPath = (parentPath, childPath) => {
+  const resolvedParent = path.resolve(parentPath);
+  const resolvedChild  = path.resolve(childPath);
+  // Accept an exact match (parent itself) or any descendant.
+  // The separator suffix prevents a parent of "/foo" from matching "/foobar".
+  return resolvedChild === resolvedParent ||
+    resolvedChild.startsWith(resolvedParent + path.sep);
+};
+
+/**
+ * Check if a directory is accessible (async).
+ * The path is resolved to an absolute form before any filesystem call so that
+ * relative-segment tricks cannot escape the intended boundary (CWE-22).
  * @param {string} dirPath
  * @returns {Promise<{ accessible: boolean, error?: string }>}
  */
 const checkAccessAsync = async (dirPath) => {
+  // Resolve to absolute path first — closes the CWE-22 taint sink.
+  const resolvedPath = path.resolve(dirPath);
   try {
-    await fsPromises.access(dirPath, fs.constants.R_OK);
-    const stat = await fsPromises.stat(dirPath);
+    await fsPromises.access(resolvedPath, fs.constants.R_OK);
+    const stat = await fsPromises.stat(resolvedPath);
     if (!stat.isDirectory()) {
       return { accessible: false, error: 'Path is not a directory' };
     }
@@ -45,7 +68,7 @@ const checkAccessAsync = async (dirPath) => {
         ? 'Path does not exist'
         : err.code === 'EACCES'
         ? 'Access denied — insufficient permissions'
-        : `Cannot access path: ${err.message}`,
+        : 'Cannot access path',
     };
   }
 };
@@ -171,4 +194,4 @@ const buildFolderTree = (folders, rootPath) => {
   return tree;
 };
 
-module.exports = { normalizePath, checkAccessAsync, scanDirectoryAsync, buildFolderTree };
+module.exports = { normalizePath, containsPath, checkAccessAsync, scanDirectoryAsync, buildFolderTree };

@@ -1,16 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 const { getMimeType } = require('../utils/mediaTypes');
-const { normalizePath } = require('../utils/scanner');
+const { normalizePath, containsPath } = require('../utils/scanner');
 const { getDb } = require('../db');
 const { exiftool } = require('exiftool-vendored');
 const sharp = require('sharp');
 
 /**
+ * Verify that `resolvedPath` falls within at least one indexed scan root.
+ * This is the primary CWE-22 (path traversal) guard for file-serving endpoints.
+ * Only files that were explicitly scanned by the user can be read or served.
+ *
+ * @param {object} db - open database handle
+ * @param {string} resolvedPath - absolute, normalized path to validate
+ * @returns {Promise<boolean>} true if the path is inside a known scan root
+ */
+const isUnderIndexedRoot = async (db, resolvedPath) => {
+  const roots = await db.all(
+    `SELECT DISTINCT path FROM scans WHERE status = 'completed'`
+  );
+  return roots.some(r => containsPath(r.path, resolvedPath));
+};
+
+/**
  * GET /api/media/serve?path=<encoded_file_path>
  * Stream a media file to the client with proper MIME type and range support
  */
-const serveMedia = (req, res) => {
+const serveMedia = async (req, res) => {
   const filePath = req.query.path;
 
   if (!filePath) {
@@ -19,6 +35,12 @@ const serveMedia = (req, res) => {
 
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
+
+  // Security (CWE-22): reject paths that are not under any indexed scan root.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   // Security: ensure the file exists and is a file (not a directory)
   let stat;
@@ -69,7 +91,7 @@ const serveMedia = (req, res) => {
  * GET /api/media/info?path=<encoded_file_path>
  * Return metadata about a media file
  */
-const getMediaInfo = (req, res) => {
+const getMediaInfo = async (req, res) => {
   const filePath = req.query.path;
 
   if (!filePath) {
@@ -78,6 +100,12 @@ const getMediaInfo = (req, res) => {
 
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
+
+  // Security (CWE-22): reject paths outside indexed scan roots.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   try {
     const stat = fs.statSync(normalizedPath);
@@ -110,6 +138,12 @@ const getMediaMetadata = async (req, res) => {
   const decodedPath = decodeURIComponent(filePath);
   const normalizedPath = normalizePath(decodedPath);
 
+  // Security (CWE-22): reject paths outside indexed scan roots.
+  const db = await getDb();
+  if (!(await isUnderIndexedRoot(db, normalizedPath))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   try {
     const tags = await exiftool.read(normalizedPath);
     return res.status(200).json(tags);
@@ -138,25 +172,25 @@ const getMediaList = async (req, res) => {
       limit = 60
     } = req.query;
 
-    let query = `SELECT * FROM media WHERE 1=1`;
+    // Security: build the WHERE clause using only parameterized placeholders so
+    // no user-supplied value is ever interpolated directly into the SQL string.
+    // The ORDER BY column and direction cannot be parameterized in SQLite, so
+    // they are validated against explicit allowlists before interpolation.
+    let baseQuery = `SELECT * FROM media WHERE 1=1`;
     const params = [];
 
     // Filter by directory path (exact match) OR if omitted, all media
     if (directoryPath) {
-      // For recursive, we could do LIKE but prompt said "Do not recursively load the entire directory tree unless necessary".
-      // We will only load media exactly in the directoryPath.
-      // Wait, "All Files" mode means directoryPath is empty.
-      if (directoryPath === 'all') {
-        // don't filter by directory
-      } else {
-        // If we want recursive loading for a selected folder, we do LIKE path + '%'
-        query += ` AND directory_path LIKE ?`;
+      // "All Files" mode — no directory filter
+      if (directoryPath !== 'all') {
+        // Recursive: load all media whose path starts with the selected folder
+        baseQuery += ` AND directory_path LIKE ?`;
         params.push(directoryPath + '%');
       }
     }
 
     if (ext) {
-      query += ` AND ext = ?`;
+      baseQuery += ` AND ext = ?`;
       params.push(ext);
     }
 
@@ -164,46 +198,49 @@ const getMediaList = async (req, res) => {
     if (mediaType) {
       if (mediaType === 'document') {
         // Documents are anything that is not image/video/audio
-        query += ` AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'`;
+        baseQuery += ` AND mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'`;
       } else {
-        query += ` AND mime_type LIKE ?`;
+        baseQuery += ` AND mime_type LIKE ?`;
         params.push(mediaType + '/%');
       }
     }
 
     if (search) {
-      query += ` AND name LIKE ?`;
+      baseQuery += ` AND name LIKE ?`;
       params.push('%' + search + '%');
     }
-    
+
     if (favoritesOnly === 'true') {
-      query += ` AND is_favorite = 1`;
+      baseQuery += ` AND is_favorite = 1`;
     }
 
-    // Determine sort column securely
+    // Allowlist-validate ORDER BY identifiers — SQLite does not support
+    // parameterized column names, so we guard against injection explicitly.
     const validFields = ['name', 'size', 'modified_at'];
     const validOrders = ['asc', 'desc'];
-    
-    // Map frontend sort names to DB columns
+
     let dbSortField = 'modified_at';
     if (sortField === 'date') dbSortField = 'modified_at';
     else if (validFields.includes(sortField)) dbSortField = sortField;
 
-    const dbSortOrder = validOrders.includes(sortOrder.toLowerCase()) ? sortOrder.toUpperCase() : 'DESC';
+    const dbSortOrder = validOrders.includes(sortOrder.toLowerCase())
+      ? sortOrder.toUpperCase()
+      : 'DESC';
 
-    query += ` ORDER BY ${dbSortField} ${dbSortOrder}`;
-
-    // Pagination
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const limitNum = parseInt(limit, 10);
-    
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+    // Run the COUNT query against the base WHERE clause (no ORDER BY needed for counting).
+    const countQuery = baseQuery.replace('SELECT *', 'SELECT COUNT(*) as count');
     const totalResult = await db.get(countQuery, params);
-    
-    query += ` LIMIT ? OFFSET ?`;
-    params.push(limitNum, offset);
 
-    const files = await db.all(query, params);
+    // Guard against NaN-derived offsets from malformed page/limit values.
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 60));
+    const offset = (pageNum - 1) * limitNum;
+
+    // Append ORDER BY and pagination only to the data query.
+    const dataQuery = `${baseQuery} ORDER BY ${dbSortField} ${dbSortOrder} LIMIT ? OFFSET ?`;
+    const dataParams = [...params, limitNum, offset];
+
+    const files = await db.all(dataQuery, dataParams);
 
     res.json({
       files,
@@ -386,6 +423,14 @@ const editMedia = async (req, res) => {
       pipeline = pipeline.webp({ quality: 90 });
     } else {
       pipeline = pipeline.png();
+    }
+
+    // Security (CWE-22): confirm the output path stays within the same
+    // directory as the source file — prevents directory traversal via
+    // crafted format or saveMode values.
+    const sourceDir = path.parse(sourcePath).dir;
+    if (!containsPath(sourceDir, outputPath)) {
+      return res.status(400).json({ error: 'Invalid output path' });
     }
 
     await pipeline.toFile(outputPath);
