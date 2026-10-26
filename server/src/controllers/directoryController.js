@@ -1,6 +1,7 @@
+const path = require('path');
 const { getDb } = require('../db');
 const { runScan, cancelScan } = require('../utils/scannerJob');
-const { normalizePath, checkAccessAsync } = require('../utils/scanner');
+const { normalizePath, checkAccessAsync, containsPath } = require('../utils/scanner');
 
 /**
  * POST /api/directory/scan
@@ -14,7 +15,15 @@ const scan = async (req, res) => {
   const { path: rawPath, extensions } = req.body;
   if (!rawPath) return res.status(400).json({ error: 'Path is required' });
 
-  const rootPath = normalizePath(rawPath);
+  const scanRoot = path.resolve(process.env.SCAN_ROOT || process.cwd());
+  const requestedPath = normalizePath(rawPath);
+  const resolvedPath = path.resolve(scanRoot, requestedPath);
+
+  if (!containsPath(scanRoot, resolvedPath)) {
+    return res.status(403).json({ error: 'Path is outside allowed scan root' });
+  }
+
+  const rootPath = resolvedPath;
   const access = await checkAccessAsync(rootPath);
   if (!access.accessible) {
     return res.status(404).json({ error: access.error, path: rootPath });
